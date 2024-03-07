@@ -144,6 +144,49 @@ const DECODED_TRACK_ENFORCED = {
   })
 
   Tester.addTest({
+    name: 'decodedTracks',
+    path: '/v1/decodetracks',
+    permittedMethods: [ 'POST' ],
+    tests: [{
+      method: 'POST',
+      body: 'Invalid JSON',
+      expected: {
+        statusCode: 400
+      }
+    }, {
+      method: 'POST',
+      body: JSON.stringify([ ENCODED_TRACK ]),
+      expected: {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([ DECODED_TRACK.info ])
+      }
+    }, {
+      method: 'POST',
+      body: JSON.stringify([ ENCODED_TRACK, decodeURIComponent(ENCODED_TRACK_ENFORCED) ]),
+      expected: {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([ DECODED_TRACK.info, DECODED_TRACK_ENFORCED.info ])
+      }
+    }, {
+      method: 'POST',
+      body: JSON.stringify([]),
+      expected: {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([])
+      }
+    }]
+  })
+
+  Tester.addTest({
     name: 'encodedTracks',
     path: '/v1/encodetracks',
     permittedMethods: [ 'POST' ],

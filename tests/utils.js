@@ -23,9 +23,6 @@ export function makeRequest(url, options) {
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...(options.headers || {})
       },
-      agent: new selectedMode.Agent({
-        keepAlive: false
-      })
       /*
         https://github.com/nodejs/node/issues/47130
 
@@ -37,6 +34,9 @@ export function makeRequest(url, options) {
         This bug will still happen when the seerver responds with
         "Connection: close" header.
       */
+      agent: new selectedMode.Agent({
+        keepAlive: false
+      })
     }, (res) => {
       res.on('data', (chunk) => (data += chunk))
 
