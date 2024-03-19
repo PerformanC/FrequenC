@@ -16,6 +16,8 @@
 !sources/*
 !lib
 !lib/*
+!licenses
+!licenses/*
 !include
 !include/*
 !external

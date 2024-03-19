@@ -6,126 +6,126 @@
 
 #include "httpparser.h"
 
-void httpparser_init_request(struct httpparser_request *httpRequest, struct httpparser_header *buffer, int length) {
-  httpRequest->path = NULL;
-  httpRequest->headersLength = 0;
-  httpRequest->headersMaxLength = length;
-  httpRequest->headers = buffer;
-  httpRequest->body = NULL;
+void httpparser_init_request(struct httpparser_request *http_request, struct httpparser_header *buffer, int length) {
+  http_request->path = NULL;
+  http_request->headers_length = 0;
+  http_request->headers_max_length = length;
+  http_request->headers = buffer;
+  http_request->body = NULL;
 }
 
 int _httpparser_check_method(const char *method) {
-  char *HTTPMethods[] = { "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH" };
+  char *http_methods[] = { "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH" };
 
-  for (size_t i = 0; i < sizeof(HTTPMethods) / sizeof(*HTTPMethods); i++) {
-    if (strcmp(method, HTTPMethods[i]) == 0) return 0;
+  for (size_t i = 0; i < sizeof(http_methods) / sizeof(*http_methods); i++) {
+    if (strcmp(method, http_methods[i]) == 0) return 0;
   }
 
   return -1;
 }
 
-int httpparser_parse_request(struct httpparser_request *httpRequest, const char *request) {
-  struct tstr_string_token headersEnd;
-  tstr_find_between(&headersEnd, request, NULL, 0, "\r\n\r\n", 0);
+int httpparser_parse_request(struct httpparser_request *http_request, const char *request) {
+  struct tstr_string_token headers_end;
+  tstr_find_between(&headers_end, request, NULL, 0, "\r\n\r\n", 0);
 
-  if (headersEnd.end == 0) return -1;
+  if (headers_end.end == 0) return -1;
 
-  struct tstr_string_token methodToken;
-  tstr_find_between(&methodToken, request, NULL, 0, " ", 0);
+  struct tstr_string_token method_token;
+  tstr_find_between(&method_token, request, NULL, 0, " ", 0);
 
-  if (methodToken.end == 0) return -1;
+  if (method_token.end == 0) return -1;
 
-  frequenc_fast_copy((char *)request, httpRequest->method, methodToken.end);
+  frequenc_fast_copy((char *)request, http_request->method, method_token.end);
 
-  if (_httpparser_check_method(httpRequest->method) == -1) return -1;
+  if (_httpparser_check_method(http_request->method) == -1) return -1;
 
-  struct tstr_string_token pathToken;
-  tstr_find_between(&pathToken, request, NULL, methodToken.end + 1, " ", 0);
+  struct tstr_string_token path_token;
+  tstr_find_between(&path_token, request, NULL, method_token.end + 1, " ", 0);
 
-  if (pathToken.end == 0) return -1;
+  if (path_token.end == 0) return -1;
 
-  httpRequest->path = frequenc_safe_malloc((pathToken.end - pathToken.start + 1) * sizeof(char));
-  frequenc_fast_copy((char *)request + pathToken.start, httpRequest->path, pathToken.end - pathToken.start);
+  http_request->path = frequenc_safe_malloc((path_token.end - path_token.start + 1) * sizeof(char));
+  frequenc_fast_copy((char *)request + path_token.start, http_request->path, path_token.end - path_token.start);
 
-  struct tstr_string_token versionToken;
-  tstr_find_between(&versionToken, request, NULL, pathToken.end + 1 + sizeof("HTTP/") - 1, "\r\n", 0);
+  struct tstr_string_token version_token;
+  tstr_find_between(&version_token, request, NULL, path_token.end + 1 + sizeof("HTTP/") - 1, "\r\n", 0);
 
-  if (versionToken.end == 0) return -1;
+  if (version_token.end == 0) return -1;
 
-  frequenc_fast_copy((char *)request + versionToken.start, httpRequest->version, versionToken.end - versionToken.start);
+  frequenc_fast_copy((char *)request + version_token.start, http_request->version, version_token.end - version_token.start);
 
-  if (strcmp(httpRequest->version, "1.1")) return -1;
+  if (strcmp(http_request->version, "1.1")) return -1;
 
   int i = 0;
-  int contentLength = 0;
-  struct tstr_string_token lastHeader = {
+  int content_length = 0;
+  struct tstr_string_token last_header = {
     .start = 0,
     .end = 0
   };
 
-  while (lastHeader.end != headersEnd.end) {
+  while (last_header.end != headers_end.end) {
     struct tstr_string_token header;
     if (i == 0) {
-      tstr_find_between(&header, request, NULL, versionToken.end + 2, "\r\n", 0);
+      tstr_find_between(&header, request, NULL, version_token.end + 2, "\r\n", 0);
     } else {
-      tstr_find_between(&header, request, NULL, lastHeader.end + 2, "\r\n", 0);
+      tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
     }
 
-    struct tstr_string_token headerName;
-    tstr_find_between(&headerName, request, NULL, header.start, ": ", header.end);
+    struct tstr_string_token header_name;
+    tstr_find_between(&header_name, request, NULL, header.start, ": ", header.end);
 
-    if (headerName.start == 0 || headerName.end == 0) return -1;
+    if (header_name.start == 0 || header_name.end == 0) return -1;
 
     if (strstr(request + header.start, "Content-Length: ") == request + header.start) {
-      contentLength = atoi(request + header.start + sizeof("Content-Length: ") - 1);
+      content_length = atoi(request + header.start + sizeof("Content-Length: ") - 1);
     }
 
-    int keyLength = headerName.end - headerName.start;
-    int valueLength = header.end - headerName.end - 2;
+    int key_length = header_name.end - header_name.start;
+    int value_length = header.end - header_name.end - 2;
 
-    frequenc_fast_copy((char *)request + headerName.start, httpRequest->headers[i].key, keyLength);
-    frequenc_fast_copy((char *)request + headerName.end + 2, httpRequest->headers[i].value, valueLength);
+    frequenc_fast_copy((char *)request + header_name.start, http_request->headers[i].key, key_length);
+    frequenc_fast_copy((char *)request + header_name.end + 2, http_request->headers[i].value, value_length);
 
-    lastHeader = header;
+    last_header = header;
 
     i++;
   }
 
-  httpRequest->headersLength = i;
+  http_request->headers_length = i;
 
-  if ((strcmp(httpRequest->method, "POST") == 0 || strcmp(httpRequest->method, "PUT") == 0) && contentLength > 0) {
-    if (contentLength <= 0) return -1;
+  if ((strcmp(http_request->method, "POST") == 0 || strcmp(http_request->method, "PUT") == 0) && content_length > 0) {
+    if (content_length <= 0) return -1;
 
-    struct httpparser_header *contentTypeHeader = httpparser_get_header(httpRequest, "Content-Type");
-    if (contentTypeHeader == NULL) return -1;
+    struct httpparser_header *content_type_header = httpparser_get_header(http_request, "Content-Type");
+    if (content_type_header == NULL) return -1;
 
-    httpRequest->body = frequenc_safe_malloc((contentLength + 1) * sizeof(char));
-    frequenc_fast_copy((char *)request + headersEnd.end + 4, httpRequest->body, contentLength);
+    http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
+    frequenc_fast_copy((char *)request + headers_end.end + 4, http_request->body, content_length);
   } else {
-    if (contentLength > 0) return -1;
+    if (content_length > 0) return -1;
   }
 
   return 0;
 }
 
-void httpparser_free_request(struct httpparser_request *httpRequest) {
-  if (httpRequest->path != NULL) free(httpRequest->path);
-  if (httpRequest->body != NULL) free(httpRequest->body);
+void httpparser_free_request(struct httpparser_request *http_request) {
+  if (http_request->path != NULL) free(http_request->path);
+  if (http_request->body != NULL) free(http_request->body);
 }
 
-void httpparser_init_response(struct httpparser_response *httpResponse, struct httpparser_header *buffer, int length) {
-  httpResponse->status = 0;
-  httpResponse->headersLength = 0;
-  httpResponse->headersMaxLength = length;
-  httpResponse->headers = buffer;
-  httpResponse->body = NULL;
+void httpparser_init_response(struct httpparser_response *http_response, struct httpparser_header *buffer, int length) {
+  http_response->status = 0;
+  http_response->headers_length = 0;
+  http_response->headers_max_length = length;
+  http_response->headers = buffer;
+  http_response->body = NULL;
 }
 
-struct httpparser_header *_httpparser_get_response_header(struct httpparser_response *httpRequest, const char *key) {
+struct httpparser_header *_httpparser_get_response_header(struct httpparser_response *http_request, const char *key) {
   int i = 0;
 
-  while (i < httpRequest->headersLength) {
-    if (strcmp(httpRequest->headers[i].key, key) == 0) return &httpRequest->headers[i];
+  while (i < http_request->headers_length) {
+    if (strcmp(http_request->headers[i].key, key) == 0) return &http_request->headers[i];
 
     i++;
   }
@@ -133,112 +133,112 @@ struct httpparser_header *_httpparser_get_response_header(struct httpparser_resp
   return NULL;
 }
 
-int httpparser_parse_response(struct httpparser_response *httpResponse, const char *request) {
-  struct tstr_string_token headersEnd;
-  tstr_find_between(&headersEnd, request, NULL, 0, "\r\n\r\n", 0);
+int httpparser_parse_response(struct httpparser_response *http_response, const char *request) {
+  struct tstr_string_token headers_end;
+  tstr_find_between(&headers_end, request, NULL, 0, "\r\n\r\n", 0);
 
-  if (headersEnd.end == 0) return -1;
+  if (headers_end.end == 0) return -1;
 
   struct tstr_string_token version;
   tstr_find_between(&version, request, "HTTP/", 0, " ", 0);
 
   if (version.start == 0 || version.end == 0) return -1;
 
-  snprintf(httpResponse->version, sizeof(httpResponse->version), "%.*s", version.end - version.start, request + version.start);
+  snprintf(http_response->version, sizeof(http_response->version), "%.*s", version.end - version.start, request + version.start);
 
-  if (strcmp(httpResponse->version, "1.1")) return -1;
+  if (strcmp(http_response->version, "1.1")) return -1;
 
   struct tstr_string_token status;
   tstr_find_between(&status, request, NULL, version.end + 1, " ", 0);
 
   if (status.start == 0 || status.end == 0 || status.end - status.start != 3) return -1;
 
-  char statusStr[4];
-  snprintf(statusStr, sizeof(statusStr), "%.*s", status.end - status.start, request + status.start);
-  httpResponse->status = atoi(statusStr);
+  char status_str[4];
+  snprintf(status_str, sizeof(status_str), "%.*s", status.end - status.start, request + status.start);
+  http_response->status = atoi(status_str);
 
   struct tstr_string_token reason;
   tstr_find_between(&reason, request, NULL, status.end + 1, "\r\n", 0);
 
   if (reason.start == 0 || reason.end == 0) return -1;
 
-  snprintf(httpResponse->reason, sizeof(httpResponse->reason), "%.*s", reason.end - reason.start, request + reason.start);
+  snprintf(http_response->reason, sizeof(http_response->reason), "%.*s", reason.end - reason.start, request + reason.start);
 
   int i = 0;
-  int contentLength = 0;
-  struct tstr_string_token lastHeader;
+  int content_length = 0;
+  struct tstr_string_token last_header;
 
   while (1) {
     struct tstr_string_token header;
     if (i == 0) {
       tstr_find_between(&header, request, NULL, reason.end + 2, "\r\n", 0);
     } else {
-      tstr_find_between(&header, request, NULL, lastHeader.end + 2, "\r\n", 0);
+      tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
     }
 
-    struct tstr_string_token headerName;
-    tstr_find_between(&headerName, request, NULL, header.start, ": ", header.end);
+    struct tstr_string_token header_name;
+    tstr_find_between(&header_name, request, NULL, header.start, ": ", header.end);
 
-    if (headerName.start == 0 || headerName.end == 0) return -1;
+    if (header_name.start == 0 || header_name.end == 0) return -1;
 
     if (strstr(request + header.start, "Content-Length: ") == request + header.start) {
-      contentLength = atoi(request + header.start + sizeof("Content-Length: ") - 1);
+      content_length = atoi(request + header.start + sizeof("Content-Length: ") - 1);
     }
 
-    int keyLength = headerName.end - headerName.start;
-    int valueLength = header.end - headerName.end - 2;
+    int key_length = header_name.end - header_name.start;
+    int value_length = header.end - header_name.end - 2;
 
-    snprintf(httpResponse->headers[i].key, sizeof(httpResponse->headers[i].key), "%.*s", keyLength, request + headerName.start);
-    snprintf(httpResponse->headers[i].value, sizeof(httpResponse->headers[i].value), "%.*s", valueLength, request + headerName.end + 2);
+    snprintf(http_response->headers[i].key, sizeof(http_response->headers[i].key), "%.*s", key_length, request + header_name.start);
+    snprintf(http_response->headers[i].value, sizeof(http_response->headers[i].value), "%.*s", value_length, request + header_name.end + 2);
 
-    lastHeader = header;
+    last_header = header;
 
     i++;
 
-    if ((header.start == 0 || header.end == 0) || header.end == headersEnd.end || i >= httpResponse->headersMaxLength) break;
+    if ((header.start == 0 || header.end == 0) || header.end == headers_end.end || i >= http_response->headers_max_length) break;
   }
 
-  httpResponse->headersLength = i;
+  http_response->headers_length = i;
 
-  struct httpparser_header *transferEncodingHeader = _httpparser_get_response_header(httpResponse, "Transfer-Encoding");
+  struct httpparser_header *transfer_encoding_header = _httpparser_get_response_header(http_response, "Transfer-Encoding");
 
-  if (transferEncodingHeader != NULL && strcmp(transferEncodingHeader->value, "chunked") == 0) {
-    const char *bodyAndLength = request + headersEnd.end + 4;
+  if (transfer_encoding_header != NULL && strcmp(transfer_encoding_header->value, "chunked") == 0) {
+    const char *body_and_length = request + headers_end.end + 4;
 
-    struct tstr_string_token chunkSize;
-    tstr_find_between(&chunkSize, bodyAndLength, NULL, 0, "\r\n", 0);
+    struct tstr_string_token chunk_size;
+    tstr_find_between(&chunk_size, body_and_length, NULL, 0, "\r\n", 0);
 
-    if (chunkSize.end == 0) return -1;
+    if (chunk_size.end == 0) return -1;
 
-    char chunkSizeStr[5];
-    frequenc_fast_copy((char *)bodyAndLength, chunkSizeStr, chunkSize.end);
+    char chunk_size_str[5];
+    frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
 
-    httpResponse->chunkLength = strtol(chunkSizeStr, NULL, 16);
-    httpResponse->body = frequenc_safe_malloc((httpResponse->chunkLength + 1) * sizeof(char));
-    httpResponse->bodyLength = snprintf(httpResponse->body, (httpResponse->chunkLength + 1), "%s", bodyAndLength + chunkSize.end + 2);
-    httpResponse->finished = 0;
+    http_response->chunk_length = strtol(chunk_size_str, NULL, 16);
+    http_response->body = frequenc_safe_malloc((http_response->chunk_length + 1) * sizeof(char));
+    http_response->body_length = snprintf(http_response->body, (http_response->chunk_length + 1), "%s", body_and_length + chunk_size.end + 2);
+    http_response->finished = 0;
   } else {
-    httpResponse->body = frequenc_safe_malloc((contentLength + 1) * sizeof(char));
-    httpResponse->bodyLength = snprintf(httpResponse->body, (contentLength + 1), "%s", request + headersEnd.end + 4);
+    http_response->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
+    http_response->body_length = snprintf(http_response->body, (content_length + 1), "%s", request + headers_end.end + 4);
 
-    if (httpResponse->bodyLength != (size_t)contentLength) {
-      free(httpResponse->body);
+    if (http_response->body_length != (size_t)content_length) {
+      free(http_response->body);
 
       return -1;
     }
 
-    httpResponse->bodyLength = contentLength;
-    httpResponse->finished = 1;
+    http_response->body_length = content_length;
+    http_response->finished = 1;
   }
 
   return 0;
 }
 
-struct httpparser_header *httpparser_get_header(struct httpparser_request *httpRequest, const char *key) {
+struct httpparser_header *httpparser_get_header(struct httpparser_request *http_request, const char *key) {
   int i = 0;
 
-  while (i < httpRequest->headersLength) {
-    if (strcmp(httpRequest->headers[i].key, key) == 0) return &httpRequest->headers[i];
+  while (i < http_request->headers_length) {
+    if (strcmp(http_request->headers[i].key, key) == 0) return &http_request->headers[i];
 
     i++;
   }

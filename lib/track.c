@@ -8,39 +8,39 @@
 
 #include "track.h"
 
-struct DecodeClass {
-  size_t position;
+struct frequenc_decode_class {
+  int position;
   unsigned char *buffer;
 };
 
-size_t changeBytes(struct DecodeClass *decodeClass, size_t bytes) {
+int change_bytes(struct frequenc_decode_class *decodeClass, int bytes) {
   decodeClass->position += bytes;
   return decodeClass->position - bytes;
 }
 
-int8_t readByte(struct DecodeClass *decodeClass) {
-  return (int8_t)decodeClass->buffer[changeBytes(decodeClass, 1)];
+int8_t read_byte(struct frequenc_decode_class *decodeClass) {
+  return (int8_t)decodeClass->buffer[change_bytes(decodeClass, 1)];
 }
 
-uint16_t readUnsignedShort(struct DecodeClass *decodeClass) {
-  return decodeClass->buffer[changeBytes(decodeClass, 2)] << 8 | decodeClass->buffer[decodeClass->position - 1];
+uint16_t read_unsigned_short(struct frequenc_decode_class *decodeClass) {
+  return decodeClass->buffer[change_bytes(decodeClass, 2)] << 8 | decodeClass->buffer[decodeClass->position - 1];
 }
 
-uint32_t readInt(struct DecodeClass *decodeClass) {
-  return decodeClass->buffer[changeBytes(decodeClass, 4)] << 24 | decodeClass->buffer[decodeClass->position - 3] << 16 |
+uint32_t read_int(struct frequenc_decode_class *decodeClass) {
+  return decodeClass->buffer[change_bytes(decodeClass, 4)] << 24 | decodeClass->buffer[decodeClass->position - 3] << 16 |
          decodeClass->buffer[decodeClass->position - 2] << 8 | decodeClass->buffer[decodeClass->position - 1];
 }
 
-uint64_t readLong(struct DecodeClass *decodeClass) {
-  uint32_t lsb = readInt(decodeClass);
-  uint32_t msb = readInt(decodeClass);
+uint64_t read_long(struct frequenc_decode_class *decodeClass) {
+  uint32_t lsb = read_int(decodeClass);
+  uint32_t msb = read_int(decodeClass);
 
   return msb + lsb;
 }
 
-char *readUtf(struct DecodeClass *decodeClass) {
-  uint16_t len = readUnsignedShort(decodeClass);
-  size_t start = changeBytes(decodeClass, len);
+char *read_utf(struct frequenc_decode_class *decodeClass) {
+  uint16_t len = read_unsigned_short(decodeClass);
+  size_t start = change_bytes(decodeClass, len);
 
   char *result = frequenc_safe_malloc((len + 1) * sizeof(char));
 
@@ -51,34 +51,34 @@ char *readUtf(struct DecodeClass *decodeClass) {
 }
 
 int decodeTrack(struct frequenc_track_info *result, char *track) {
-  int outputLength = b64_decoded_size(track, strlen(track)) + 1;
-  unsigned char *output = frequenc_safe_malloc(outputLength * sizeof(unsigned char));
-  memset(output, 0, outputLength);
+  int output_length = b64_decoded_size(track, strlen(track)) + 1;
+  unsigned char *output = frequenc_safe_malloc(output_length * sizeof(unsigned char));
+  memset(output, 0, output_length);
 
-  if (b64_decode(track, output, outputLength) == 0) {
+  if (b64_decode(track, output, output_length) == 0) {
     printf("[track]: Failed to decode track.\n - Reason: Invalid base64 string.\n - Input: %s\n", track);
 
     free(output);
 
     return -1;
   }
-  output[outputLength - 1] = '\0';
+  output[output_length - 1] = '\0';
 
-  struct DecodeClass buf = { 0 };
+  struct frequenc_decode_class buf = { 0 };
   buf.position = 0;
   buf.buffer = output;
 
-  int bufferLength = readInt(&buf);
+  int buffer_length = read_int(&buf);
 
-  if ((bufferLength & ~(1 << 30)) != outputLength - 4 - 1) {
-    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %d\n", bufferLength & ~(1 << 30), outputLength - 4 - 1);
+  if ((buffer_length & ~(1 << 30)) != output_length - 4 - 1) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %d\n", buffer_length & ~(1 << 30), output_length - 4 - 1);
 
     free(output);
 
     return -1;
   }
 
-  int version = (result->version = ((bufferLength & 0xC0000000U) >> 30 & 1) != 0 ? readByte(&buf) : 1);
+  int version = (result->version = ((buffer_length & 0xC0000000U) >> 30 & 1) != 0 ? read_byte(&buf) : 1);
 
   if (version != 3) {
     printf("[track]: Failed to decode track.\n - Reason: Unknown track version.\n - Expected: 3\n - Actual: %d\n", version);
@@ -88,31 +88,38 @@ int decodeTrack(struct frequenc_track_info *result, char *track) {
     return -1;
   }
 
-  if ((result->title = readUtf(&buf)) == NULL) return -1;
-  if ((result->author = readUtf(&buf)) == NULL) return -1;
-  if ((result->length = readLong(&buf)) == 0) return -1;
-  if ((result->identifier = readUtf(&buf)) == NULL) return -1;
-  result->isStream = readByte(&buf) == 1;
-  if (readByte(&buf)) {
-    if ((result->uri = readUtf(&buf)) == NULL) return -1;
+  if ((result->title = read_utf(&buf)) == NULL) return -1;
+  if ((result->author = read_utf(&buf)) == NULL) return -1;
+  if ((result->length = read_long(&buf)) == 0) return -1;
+  if ((result->identifier = read_utf(&buf)) == NULL) return -1;
+  result->isStream = read_byte(&buf) == 1;
+  if (read_byte(&buf)) {
+    if ((result->uri = read_utf(&buf)) == NULL) return -1;
   } else {
     result->uri = NULL;
   }
-  if (readByte(&buf)) {
-    if ((result->artworkUrl = readUtf(&buf)) == NULL) return -1;
+  if (read_byte(&buf)) {
+    if ((result->artworkUrl = read_utf(&buf)) == NULL) return -1;
   } else {
     result->artworkUrl = NULL;
   }
-  if (readByte(&buf)) {
-    if ((result->isrc = readUtf(&buf)) == NULL) return -1;
+  if (read_byte(&buf)) {
+    if ((result->isrc = read_utf(&buf)) == NULL) return -1;
   } else {
     result->isrc = NULL;
   }
-  if ((result->sourceName = readUtf(&buf)) == NULL) return -1;
-  result->position = readLong(&buf);
+  if ((result->sourceName = read_utf(&buf)) == NULL) return -1;
+  result->position = read_long(&buf);
 
-  printf("[track]: Successfully decoded track.\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n - Position: %lu\n", result->title, result->author, result->length, result->identifier, result->isStream ? "true" : "false", result->uri ? result->uri : "null", result->artworkUrl ? result->artworkUrl : "null", result->isrc ? result->isrc : "null", result->sourceName, result->position);
-  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n", result->version, track);
+  if (buf.position != output_length - 1) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %d\n", buf.position, output_length - 1);
+
+    free(output);
+
+    return -1;
+  }
+
+  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n - Position: %lu\n", result->version, track, result->title, result->author, result->length, result->identifier, result->isStream ? "true" : "false", result->uri ? result->uri : "null", result->artworkUrl ? result->artworkUrl : "null", result->isrc ? result->isrc : "null", result->sourceName, result->position);
 
   free(output);
 

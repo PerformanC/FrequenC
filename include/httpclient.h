@@ -11,7 +11,7 @@ struct httpclient_request_params {
   int port;
   char *method;
   char *path;
-  int headersLength;
+  int headers_length;
   struct httpparser_header *headers;
   char *body;
 };
@@ -20,14 +20,13 @@ struct httpclient_response {
   char version[4];
   int status;
   char reason[32];
-  int headersLength;
-  int headersMaxLength;
+  int headers_length;
+  int headers_max_length;
   struct httpparser_header *headers;
   char *body;
-  size_t bodySize;
-  size_t bodyLength;
+  size_t body_length;
   int finished;
-  int chunkLength;
+  int chunk_length;
   SSL *ssl;
   SSL_CTX *ctx;
   int socket;

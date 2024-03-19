@@ -37,7 +37,7 @@
 #define AUTHORIZATION "youshallnotpass"
 #endif
 
-struct ClientAuthorization {
+struct client_authorization {
   char *userId;
   struct csocket_server_client *client;
   bool disconnected;
@@ -47,21 +47,21 @@ struct tablec_ht clients;
 struct httpserver server;
 struct cthreads_mutex mutex;
 
-void callback(struct csocket_server_client *client, int socketIndex, struct httpparser_request *request) {
+void callback(struct csocket_server_client *client, int socket_index, struct httpparser_request *request) {
   struct httpparser_header *authorization = httpparser_get_header(request, "Authorization");
 
   if (authorization == NULL || strcmp(authorization->value, AUTHORIZATION) != 0) {
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 401);
-    setResponseHeader(&response, "Content-Type", "text/plain");
-    setResponseHeader(&response, "Content-Length", "12");
-    setResponseBody(&response, "Unauthorized");
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 401);
+    httpserver_set_response_header(&response, "Content-Type", "text/plain");
+    httpserver_set_response_header(&response, "Content-Length", "12");
+    httpserver_set_response_body(&response, "Unauthorized");
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     return;
   }
@@ -85,27 +85,27 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[5];
-    initResponse(&response, headerBuffer, 5);
+    httpserver_init_response(&response, headerBuffer, 5);
 
     char acceptKey[32 + 1];
     frequenc_gen_accept_key(secWebSocketKey->value, acceptKey);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 101);
-    setResponseHeader(&response, "Upgrade", "websocket");
-    setResponseHeader(&response, "Connection", "Upgrade");
-    setResponseHeader(&response, "Sec-WebSocket-Accept", acceptKey);
-    setResponseHeader(&response, "Sec-WebSocket-Version", "13");
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 101);
+    httpserver_set_response_header(&response, "Upgrade", "websocket");
+    httpserver_set_response_header(&response, "Connection", "Upgrade");
+    httpserver_set_response_header(&response, "Sec-WebSocket-Accept", acceptKey);
+    httpserver_set_response_header(&response, "Sec-WebSocket-Version", "13");
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     struct tablec_bucket *selectedClient;
 
     cthreads_mutex_lock(&mutex);
-    if (sessionId != NULL && (selectedClient = tablec_get(&clients, sessionId->value)) != NULL && ((struct ClientAuthorization *)selectedClient->value)->disconnected) {
+    if (sessionId != NULL && (selectedClient = tablec_get(&clients, sessionId->value)) != NULL && ((struct client_authorization *)selectedClient->value)->disconnected) {
       cthreads_mutex_unlock(&mutex);
 
-      struct ClientAuthorization *clientAuthorization = selectedClient->value;
+      struct client_authorization *clientAuthorization = selectedClient->value;
 
       clientAuthorization->userId = userId->value;
       clientAuthorization->client = client;
@@ -122,22 +122,22 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
       struct frequenc_ws_message wsResponse;
       wsResponse.opcode = 1;
       wsResponse.fin = 1;
-      wsResponse.payloadLength = payloadLength;
+      wsResponse.payload_length = payloadLength;
       wsResponse.buffer = payload;
       wsResponse.client = client;
 
       frequenc_send_ws_response(&wsResponse);
 
-      setSocketData(&server, socketIndex, sessionId->value);
+      httpserver_set_socket_data(&server, socket_index, sessionId->value);
 
-      upgradeSocket(&server, socketIndex);
+      httpserver_upgrade_socket(&server, socket_index);
 
       return;
     }
 
     cthreads_mutex_unlock(&mutex);
 
-    struct ClientAuthorization *clientAuthorization = frequenc_safe_malloc(sizeof(struct ClientAuthorization));
+    struct client_authorization *clientAuthorization = frequenc_safe_malloc(sizeof(struct client_authorization));
 
     char *sessionIdGen = frequenc_safe_malloc((16 + 1) * sizeof(char));
 
@@ -166,7 +166,7 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
     struct frequenc_ws_message wsResponse;
     wsResponse.opcode = 1;
     wsResponse.fin = 1;
-    wsResponse.payloadLength = payloadLength;
+    wsResponse.payload_length = payloadLength;
     wsResponse.buffer = payload;
     wsResponse.client = client;
 
@@ -196,9 +196,9 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
     }
     cthreads_mutex_unlock(&mutex);
 
-    setSocketData(&server, socketIndex, sessionIdGen);
+    httpserver_set_socket_data(&server, socket_index, sessionIdGen);
 
-    upgradeSocket(&server, socketIndex);
+    httpserver_upgrade_socket(&server, socket_index);
   }
 
   else if (strcmp(request->path, "/version") == 0) {
@@ -206,15 +206,15 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "text/plain");
-    setResponseHeader(&response, "Content-Length", VERSION_LENGTH);
-    setResponseBody(&response, VERSION);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "text/plain");
+    httpserver_set_response_header(&response, "Content-Length", VERSION_LENGTH);
+    httpserver_set_response_body(&response, VERSION);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
   }
 
   else if (strcmp(request->path, "/v1/info") == 0) {
@@ -243,20 +243,21 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
         "\"plugins\":[]"
       "}",
       VERSION, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GIT_BRANCH, GIT_COMMIT, GIT_COMMIT_TIME, SUPPORTED_SOURCES, SUPPORTED_FILTERS),
-      payloadLength
+      payloadLength,
+      sizeof(payloadLength)
     );
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "application/json");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, payload);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "application/json");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, payload);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
   }
 
   else if (strcmp(request->path, "/v1/decodetracks") == 0) {
@@ -325,19 +326,19 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
     arrayResponse[arrayResponseLength] = '\0';
 
     char payloadLength[8 + 1];
-    frequenc_stringify_int(arrayResponseLength, payloadLength);
+    frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "application/json");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, arrayResponse);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "application/json");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, arrayResponse);
     
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     free(arrayResponse);
   }
@@ -365,19 +366,19 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
 
     char payload[2048];
     char payloadLength[3 + 1];
-    frequenc_stringify_int(frequenc_track_info_to_json(&decodedTrack, decodedQuery, payload, sizeof(payload)), payloadLength);
+    frequenc_stringify_int(frequenc_track_info_to_json(&decodedTrack, decodedQuery, payload, sizeof(payload)), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "application/json");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, payload);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "application/json");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, payload);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     freeTrack(&decodedTrack);
   }
@@ -416,7 +417,7 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
     arrayResponse[0] = '[';
 
     for (int i = 0; i < pairs->size; i++) {
-      char iStr[3 + 1];
+      char iStr[10 + 1];
       snprintf(iStr, sizeof(iStr), "%d", i);
 
       struct frequenc_track_info decodedTrack = { 0 };
@@ -456,19 +457,19 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
     tstr_append(arrayResponse, "]", &arrayResponseLength, 0);
 
     char payloadLength[8 + 1];
-    frequenc_stringify_int(arrayResponseLength, payloadLength);
+    frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "application/json");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, arrayResponse);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "application/json");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, arrayResponse);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     free(arrayResponse);
   }
@@ -510,19 +511,19 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
 
     char *encodedTrack = NULL;
     char payloadLength[4];
-    frequenc_stringify_int(encodeTrack(&decodedTrack, &encodedTrack), payloadLength);
+    frequenc_stringify_int(encodeTrack(&decodedTrack, &encodedTrack), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "text/plain");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, encodedTrack);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "text/plain");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, encodedTrack);
     
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     frequenc_free_track_info(&decodedTrack);
     free(encodedTrack);
@@ -547,38 +548,44 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
 
     struct tstr_string result = { 0 };
 
-    if (strncmp(identifierDecoded, "ytsearch:", sizeof("ytsearch:") - 1) == 0) {
-      result = frequenc_search_youtube(identifierDecoded + sizeof("ytsearch:") - 1, 0);
-    }
+    if (strncmp(identifierDecoded, "ytsearch:", sizeof("ytsearch:") - 1) == 0)
+      result = frequenc_youtube_search(identifierDecoded + (sizeof("ytsearch:") - 1), 0);
+
+    /* add ytm support*/
+    // if (strncmp(identifierDecoded, "ytmsearch:", sizeof("ytmsearch:") - 1) == 0)
+    //   result = frequenc_youtube_search(identifierDecoded + (sizeof("ytmsearch:") - 1), 1);
+
 
     char payloadLength[8 + 1];
-    frequenc_stringify_int(result.length, payloadLength);
+    frequenc_stringify_int(result.length, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 200);
-    setResponseHeader(&response, "Content-Type", "application/json");
-    setResponseHeader(&response, "Content-Length", payloadLength);
-    setResponseBody(&response, result.string);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+    httpserver_set_response_header(&response, "Content-Type", "application/json");
+    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_body(&response, result.string);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     if (result.allocated)
       free(result.string);
   }
 
+  // else if (strncmp())
+
   else {
     struct httpserver_response notFoundResponse;
     struct httpserver_header headerBuffer[3];
-    initResponse(&notFoundResponse, headerBuffer, 2);
+    httpserver_init_response(&notFoundResponse, headerBuffer, 2);
 
-    setResponseSocket(&notFoundResponse, client);
-    setResponseStatus(&notFoundResponse, 404);
+    httpserver_set_response_socket(&notFoundResponse, client);
+    httpserver_set_response_status(&notFoundResponse, 404);
 
-    sendResponse(&notFoundResponse);
+    httpserver_send_response(&notFoundResponse);
   }
 
   return;
@@ -586,12 +593,12 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
   bad_request: {
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 400);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 400);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     return;
   }
@@ -599,41 +606,41 @@ void callback(struct csocket_server_client *client, int socketIndex, struct http
   method_not_allowed: {
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
-    initResponse(&response, headerBuffer, 3);
+    httpserver_init_response(&response, headerBuffer, 3);
 
-    setResponseSocket(&response, client);
-    setResponseStatus(&response, 405);
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 405);
 
-    sendResponse(&response);
+    httpserver_send_response(&response);
 
     return;
   }
 }
 
-int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_header *frameHeader) {
+int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_header *frame_header) {
   printf("[main]: WS message: %d\n", csocket_server_client_get_id(client));
 
-  if (frameHeader->opcode == 8) {
-    disconnectClient(client);
+  if (frame_header->opcode == 8) {
+    httpserver_disconnect_client(client);
 
     return 1;
   }
 
   printf("[main]: Socket: %d\n", csocket_server_client_get_id(client));
-  printf("[main]: Opcode: %d\n", frameHeader->opcode);
-  printf("[main]: FIN: %d\n", frameHeader->fin);
-  printf("[main]: Length: %zu\n", frameHeader->payloadLength);
-  printf("[main]: Buffer: |%s|\n", frameHeader->buffer);
+  printf("[main]: Opcode: %d\n", frame_header->opcode);
+  printf("[main]: FIN: %d\n", frame_header->fin);
+  printf("[main]: Length: %zu\n", frame_header->payload_length);
+  printf("[main]: Buffer: |%s|\n", frame_header->buffer);
 
   return 0;
 }
 
-void disconnectCallback(struct csocket_server_client *client, int socketIndex) {
+void disconnectCallback(struct csocket_server_client *client, int socket_index) {
   /* TODO: Add resuming mechanism; set clientAuthorization->disconnected to true */
   char socketStr[4];
   snprintf(socketStr, sizeof(socketStr), "%d", csocket_server_client_get_id(client));
 
-  char *sessionId = getSocketData(&server, socketIndex);
+  char *sessionId = httpserver_get_socket_data(&server, socket_index);
 
   if (sessionId == NULL) return;
 
@@ -641,7 +648,7 @@ void disconnectCallback(struct csocket_server_client *client, int socketIndex) {
   struct tablec_bucket *bucket2 = tablec_get(&clients, sessionId);
 
   if (bucket2->value == NULL) {
-    printf("[main]: Client disconnected not properly. Report it.\n - Reason: Can't find saved sessionId on hashtable.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(client), socketIndex, cthreads_thread_id(cthreads_thread_self()));
+    printf("[main]: Client disconnected not properly. Report it.\n - Reason: Can't find saved sessionId on hashtable.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(client), socket_index, cthreads_thread_id(cthreads_thread_self()));
 
     exit(1);
 
@@ -674,7 +681,7 @@ void handleSigInt(int sig) {
   if (!detected) printf("[main]: No data found in the hashtable.\n");
   else printf("[main]: Data found in the hashtable. If there weren't clients connected, please, contribute to the project\n");
 
-  stopServer(&server);
+  httpserver_stop_server(&server);
   free(clients.buckets);
 
   printf("[main]: Checking done. Server stopped. Goodbye.\n");
@@ -691,7 +698,7 @@ int main(void) {
 
   cthreads_mutex_init(&mutex, NULL);
 
-  startServer(&server);
+  httpserver_start_server(&server);
 
-  handleRequest(&server, callback, websocketCallback, disconnectCallback);
+  httpserver_handle_request(&server, callback, websocketCallback, disconnectCallback);
 }

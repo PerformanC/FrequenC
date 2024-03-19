@@ -14,7 +14,7 @@ struct frequenc_ws_header {
   uint8_t opcode;
   int fin;
   char *buffer;
-  size_t payloadLength;
+  size_t payload_length;
 };
 
 struct frequenc_ws_message {
@@ -22,7 +22,7 @@ struct frequenc_ws_message {
   uint8_t opcode;
   int fin;
   char *buffer;
-  size_t payloadLength;
+  size_t payload_length;
 };
 
 struct frequenc_ws_header frequenc_parse_ws_header(char *buffer);
@@ -37,7 +37,7 @@ void frequenc_set_ws_response_body(struct frequenc_ws_message *response, char *b
 
 void frequenc_send_ws_response(struct frequenc_ws_message *response);
 
-int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*onMessage)(struct httpclient_response *client, struct frequenc_ws_header *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_header *message));
+int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_header *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_header *message));
 
 int frequenc_send_text_ws_client(struct httpclient_response *response, char *message);
 

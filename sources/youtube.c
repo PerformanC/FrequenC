@@ -4,8 +4,12 @@
 #include "libtstr.h"
 #include "httpclient.h"
 
+#define _frequenc_youtube_get_client_name(type) (type == 0 ? "ANDROID" : "ANDROID_MUSIC")
+#define _frequenc_youtube_get_client_version(type) (type == 0 ? "19.10.33" : "6.42.52")
+
 /* TODO: Replace for a macro for using stack allocated chars */
-struct tstr_string frequenc_search_youtube(char *query, int type) {
+struct tstr_string frequenc_youtube_search(char *query, int type) {
+  /* todo: add YouTube music support based on NodeLink */
   (void)type;
 
   char body[1024];
@@ -16,8 +20,8 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
         "\"embedUrl\":\"https://google.com\""
       "},"
       "\"client\":{"
-        "\"clientName\":\"ANDROID\","
-        "\"clientVersion\":\"19.04.33\","
+        "\"clientName\":\"%s\","
+        "\"clientVersion\":\"%s\","
         "\"androidSdkVersion\":\"34\","
         "\"screenDensityFloat\":1,"
         "\"screenHeightPoints\":1080,"
@@ -27,14 +31,14 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
     "},"
     "\"query\":\"%s\","
     "\"params\":\"EgIQAQ%%3D%%3D\"" // %% = escaped %
-  "}", query);
+  "}", _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
 
   struct httpclient_request_params request = {
     .host = "www.youtube.com",
     .port = 443,
     .method = "POST",
     .path = "/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false",
-    .headersLength = 2,
+    .headers_length = 2,
     .headers = (struct httpparser_header[]) {
       {
         .key = "User-Agent",
@@ -75,7 +79,7 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
   jsmntok_t *tokens = frequenc_safe_malloc((1024 * 1024 * 1) * sizeof(jsmntok_t)); /* TODO: Replace by auto load */
 
   jsmn_init(&parser);
-  int r = jsmn_parse(&parser, response.body, response.bodyLength, tokens, 1024 * 1024 * 1);
+  int r = jsmn_parse(&parser, response.body, response.body_length, tokens, 1024 * 1024 * 1);
   if (r < 0) {
     printf("[youtube]: Failed to parse JSON.\n");
 
@@ -122,21 +126,21 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
   if (error != NULL) {
     printf("[youtube]: Error: %.*s\n", (int)error->v.len, response.body + error->v.pos);
 
-    char *errorStr = frequenc_safe_malloc((error->v.len + 1) * sizeof(char));
-    frequenc_fast_copy(response.body + error->v.pos, errorStr, error->v.len);
+    char *error_str = frequenc_safe_malloc((error->v.len + 1) * sizeof(char));
+    frequenc_fast_copy(response.body + error->v.pos, error_str, error->v.len);
 
-    char errorJSON[1024];
-    int errorJSONLength = snprintf(errorJSON, sizeof(errorJSON),
+    char error_json[1024];
+    int error_json_length = snprintf(error_json, sizeof(error_json),
       "{"
         "\"loadType\":\"error\","
         "\"error\":\"%s\""
-      "}", errorStr);
+      "}", error_str);
 
-    free(errorStr);
+    free(error_str);
 
     struct tstr_string result = {
-      .string = errorJSON,
-      .length = errorJSONLength,
+      .string = error_json,
+      .length = error_json_length,
       .allocated = false
     };
 
@@ -149,7 +153,7 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
 
   jsmnf_pair *contents = jsmnf_find_path(pairs, response.body, path, 3);
 
-  char iStr[2];
+  char iStr[11 + 1];
   snprintf(iStr, sizeof(iStr), "%d", contents->size - 1); /* TODO: Replace snprintf */
 
   path[3] = iStr;
@@ -158,15 +162,15 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
 
   jsmnf_pair *videos = jsmnf_find_path(pairs, response.body, path, 6);
 
-  char *responseStr = frequenc_safe_malloc((29 + 1) * sizeof(char));
-  size_t responseStrLength = snprintf(responseStr, (29 + 1) * sizeof(char),
+  char *response_str = frequenc_safe_malloc((29 + 1) * sizeof(char));
+  size_t response_str_length = snprintf(response_str, (29 + 1) * sizeof(char),
     "{"
       "\"loadType\":\"search\","
       "\"data\":[");
 
   int i = 0;
   while (i < videos->size) {
-    char i2Str[3];
+    char i2Str[11 + 1];
     snprintf(i2Str, sizeof(i2Str), "%d", i); /* TODO: Replace snprintf */
 
     path[6] = i2Str;
@@ -196,102 +200,102 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
       path[11] = "text";
       jsmnf_pair *title = jsmnf_find_path(pairs, response.body, path, 12);
 
-      char *identifierStr = frequenc_safe_malloc((identifier->v.len + 1) * sizeof(char));
-      frequenc_fast_copy(response.body + identifier->v.pos, identifierStr, identifier->v.len);
+      char *identifier_str = frequenc_safe_malloc((identifier->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + identifier->v.pos, identifier_str, identifier->v.len);
 
-      char *authorStr = frequenc_safe_malloc((author->v.len + 1) * sizeof(char));
-      frequenc_fast_copy(response.body + author->v.pos, authorStr, author->v.len);
+      char *author_str = frequenc_safe_malloc((author->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + author->v.pos, author_str, author->v.len);
 
-      char *lengthStr = frequenc_safe_malloc((length->v.len + 1) * sizeof(char));
-      frequenc_fast_copy(response.body + length->v.pos, lengthStr, length->v.len);
+      char *length_str = frequenc_safe_malloc((length->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + length->v.pos, length_str, length->v.len);
 
-      size_t lengthInt = 0;
+      size_t length_int = 0;
 
       if (length) {
-        int amount = tstr_find_amount(lengthStr, ":");
+        int amount = tstr_find_amount(length_str, ":");
 
         switch (amount) {
           case 0: {
-            lengthInt += atoi(lengthStr) * 1000;
+            length_int += atoi(length_str) * 1000;
 
             break;
           }
           case 1: {
-            struct tstr_string_token lengthStrUtils;
-            tstr_find_between(&lengthStrUtils, lengthStr, NULL, 0, ":", 0);
+            struct tstr_string_token length_str_utils;
+            tstr_find_between(&length_str_utils, length_str, NULL, 0, ":", 0);
 
-            char *lengthStrMinutes = frequenc_safe_malloc((lengthStrUtils.end + 1) * sizeof(char));
-            frequenc_fast_copy(lengthStr + lengthStrUtils.start, lengthStrMinutes, lengthStrUtils.end);
+            char *length_str_minutes = frequenc_safe_malloc((length_str_utils.end + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils.start, length_str_minutes, length_str_utils.end);
 
-            lengthInt += atoi(lengthStrMinutes) * (60 * 1000);
+            length_int += atoi(length_str_minutes) * (60 * 1000);
 
-            free(lengthStrMinutes);
+            free(length_str_minutes);
 
-            struct tstr_string_token lengthStrUtils2;
-            tstr_find_between(&lengthStrUtils2, lengthStr, NULL, lengthStrUtils.end + 1, ":", 0);
+            struct tstr_string_token length_str_utils2;
+            tstr_find_between(&length_str_utils2, length_str, NULL, length_str_utils.end + 1, ":", 0);
 
-            char *lengthStrSeconds = frequenc_safe_malloc((lengthStrUtils2.end - lengthStrUtils2.start + 1) * sizeof(char));
-            frequenc_fast_copy(lengthStr + lengthStrUtils2.start, lengthStrSeconds, lengthStrUtils2.end - lengthStrUtils2.start);
+            char *length_str_seconds = frequenc_safe_malloc((length_str_utils2.end - length_str_utils2.start + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils2.start, length_str_seconds, length_str_utils2.end - length_str_utils2.start);
 
-            lengthInt += atoi(lengthStrSeconds) * 1000;
+            length_int += atoi(length_str_seconds) * 1000;
 
-            free(lengthStrSeconds);
+            free(length_str_seconds);
 
             break;
           }
           case 2: {
-            struct tstr_string_token lengthStrUtils;
-            tstr_find_between(&lengthStrUtils, lengthStr, NULL, 0, ":", 0);
+            struct tstr_string_token length_str_utils;
+            tstr_find_between(&length_str_utils, length_str, NULL, 0, ":", 0);
 
-            char *lengthStrHours = frequenc_safe_malloc((lengthStrUtils.end + 1) * sizeof(char));
-            frequenc_fast_copy(lengthStr + lengthStrUtils.start, lengthStrHours, lengthStrUtils.end);
+            char *length_str_hours = frequenc_safe_malloc((length_str_utils.end + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils.start, length_str_hours, length_str_utils.end);
 
-            lengthInt += atoi(lengthStrHours) * (60 * 60 * 1000);
+            length_int += atoi(length_str_hours) * (60 * 60 * 1000);
 
-            free(lengthStrHours);
+            free(length_str_hours);
 
-            struct tstr_string_token lengthStrUtils2;
-            tstr_find_between(&lengthStrUtils2, lengthStr, NULL, lengthStrUtils.end + 1, ":", 0);
+            struct tstr_string_token length_str_utils2;
+            tstr_find_between(&length_str_utils2, length_str, NULL, length_str_utils.end + 1, ":", 0);
 
-            char *lengthStrMinutes = frequenc_safe_malloc((lengthStrUtils2.end - lengthStrUtils2.start + 1) * sizeof(char));
-            frequenc_fast_copy(lengthStr + lengthStrUtils2.start, lengthStrMinutes, lengthStrUtils2.end - lengthStrUtils2.start);
+            char *length_str_minutes = frequenc_safe_malloc((length_str_utils2.end - length_str_utils2.start + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils2.start, length_str_minutes, length_str_utils2.end - length_str_utils2.start);
 
-            lengthInt += atoi(lengthStrMinutes) * (60 * 1000);
+            length_int += atoi(length_str_minutes) * (60 * 1000);
 
-            free(lengthStrMinutes);
+            free(length_str_minutes);
 
-            struct tstr_string_token lengthStrUtils3;
-            tstr_find_between(&lengthStrUtils3, lengthStr, NULL, lengthStrUtils2.end + 1, ":", 0);
+            struct tstr_string_token length_str_utils3;
+            tstr_find_between(&length_str_utils3, length_str, NULL, length_str_utils2.end + 1, ":", 0);
 
-            char *lengthStrSeconds = frequenc_safe_malloc((lengthStrUtils3.end - lengthStrUtils3.start + 1) * sizeof(char));
-            frequenc_fast_copy(lengthStr + lengthStrUtils3.start, lengthStrSeconds, lengthStrUtils3.end - lengthStrUtils3.start);
+            char *length_str_seconds = frequenc_safe_malloc((length_str_utils3.end - length_str_utils3.start + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils3.start, length_str_seconds, length_str_utils3.end - length_str_utils3.start);
 
-            lengthInt += atoi(lengthStrSeconds) * 1000;
+            length_int += atoi(length_str_seconds) * 1000;
 
-            free(lengthStrSeconds);
+            free(length_str_seconds);
 
             break;
           }
         }
       }
 
-      char *titleStr = frequenc_safe_malloc((title->v.len + 1) * sizeof(char));
-      frequenc_fast_copy(response.body + title->v.pos, titleStr, title->v.len);
+      char *title_str = frequenc_safe_malloc((title->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + title->v.pos, title_str, title->v.len);
 
-      char *uriStr = frequenc_safe_malloc((sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1) * sizeof(char));
-      snprintf(uriStr, sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1, "https://www.youtube.com/watch?v=%s", identifierStr);
+      char *uri_str = frequenc_safe_malloc((sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1) * sizeof(char));
+      snprintf(uri_str, sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1, "https://www.youtube.com/watch?v=%s", identifier_str);
 
-      char *artworkUrlStr = frequenc_safe_malloc((sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char));
-      snprintf(artworkUrlStr, sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1, "https://i.ytimg.com/vi/%s/maxresdefault.jpg", identifierStr);
+      char *artworkUrl_str = frequenc_safe_malloc((sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char));
+      snprintf(artworkUrl_str, sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1, "https://i.ytimg.com/vi/%s/maxresdefault.jpg", identifier_str);
 
       struct frequenc_track_info trackInfo = {
-        .title = titleStr,
-        .author = authorStr,
-        .length = lengthInt,
-        .identifier = identifierStr,
-        .isStream = lengthInt == 0,
-        .uri = uriStr,
-        .artworkUrl = artworkUrlStr,
+        .title = title_str,
+        .author = author_str,
+        .length = length_int,
+        .identifier = identifier_str,
+        .isStream = length_int == 0,
+        .uri = uri_str,
+        .artworkUrl = artworkUrl_str,
         .isrc = NULL,
         .sourceName = "YouTube",
         .position = 0
@@ -300,46 +304,46 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
       char *encodedTrack = NULL;
       encodeTrack(&trackInfo, &encodedTrack);
 
-      char videoJSON[2048];
-      frequenc_track_info_to_json(&trackInfo, encodedTrack, videoJSON, sizeof(videoJSON));
+      char video_json[2048];
+      frequenc_track_info_to_json(&trackInfo, encodedTrack, video_json, sizeof(video_json));
 
-      if (responseStrLength == 29) {
-        responseStr = realloc(responseStr, responseStrLength + strlen(videoJSON) + 2);
+      if (response_str_length == 29) {
+        response_str = realloc(response_str, response_str_length + strlen(video_json) + 2);
 
-        tstr_append(responseStr, videoJSON, &responseStrLength, 0);
+        tstr_append(response_str, video_json, &response_str_length, 0);
       } else {
-        responseStr = realloc(responseStr, responseStrLength + strlen(videoJSON) + sizeof(",") - 1 + 2);
+        response_str = realloc(response_str, response_str_length + strlen(video_json) + sizeof(",") - 1 + 2);
 
-        tstr_append(responseStr, ",", &responseStrLength, 0);
-        tstr_append(responseStr, videoJSON, &responseStrLength, 0);
+        tstr_append(response_str, ",", &response_str_length, 0);
+        tstr_append(response_str, video_json, &response_str_length, 0);
       }
 
       free(encodedTrack);
-      free(identifierStr);
-      free(authorStr);
-      free(lengthStr);
-      free(titleStr);
-      free(uriStr);
-      free(artworkUrlStr);
+      free(identifier_str);
+      free(author_str);
+      free(length_str);
+      free(title_str);
+      free(uri_str);
+      free(artworkUrl_str);
     }
 
     i++;
   }
 
-  if (responseStrLength == 29) {
-    free(responseStr);
+  if (response_str_length == 29) {
+    free(response_str);
     free(response.body);
     free(pairs);
     free(tokens);
 
-    char *responseMsg = frequenc_safe_malloc((20 + 1) * sizeof(char));
-    snprintf(responseMsg, 20 + 1,
+    char *response_msg = frequenc_safe_malloc((20 + 1) * sizeof(char));
+    snprintf(response_msg, 20 + 1,
       "{"
         "\"loadType\":\"empty\""
       "}");
 
     struct tstr_string result = {
-      .string = responseMsg,
+      .string = response_msg,
       .length = 20,
       .allocated = true
     };
@@ -347,16 +351,16 @@ struct tstr_string frequenc_search_youtube(char *query, int type) {
     return result;
   }
 
-  responseStr = realloc(responseStr, responseStrLength + (sizeof("]}") - 1) + 1);
-  tstr_append(responseStr, "]}", &responseStrLength, 0);
+  response_str = realloc(response_str, response_str_length + (sizeof("]}") - 1) + 1);
+  tstr_append(response_str, "]}", &response_str_length, 0);
 
   free(pairs);
   free(tokens);
   httpclient_free(&response);
 
   struct tstr_string result = {
-    .string = responseStr,
-    .length = responseStrLength,
+    .string = response_str,
+    .length = response_str_length,
     .allocated = true
   };
 

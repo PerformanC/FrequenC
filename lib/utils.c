@@ -109,7 +109,7 @@ void *frequenc_safe_realloc(void *pointer, size_t size) {
   return newPtr;
 }
 
-int frequenc_track_info_to_json(struct frequenc_track_info *trackInfo, char *encoded, char *result, size_t size) {
+int frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, char *result, size_t size) {
   return snprintf(result, size,
     "{"
       "\"encoded\":\"%s\","
@@ -125,11 +125,11 @@ int frequenc_track_info_to_json(struct frequenc_track_info *trackInfo, char *enc
         "\"sourceName\":\"%s\","
         "\"position\":%ld"
       "}"
-    "}", encoded, trackInfo->title, trackInfo->author, trackInfo->length, trackInfo->identifier, trackInfo->isStream ? "true" : "false", trackInfo->uri == NULL ? "null" : "\"", trackInfo->uri == NULL ? "" : trackInfo->uri, trackInfo->uri == NULL ? "" : "\"", trackInfo->artworkUrl == NULL ? "null" : "\"", trackInfo->artworkUrl == NULL ? "" : trackInfo->artworkUrl, trackInfo->artworkUrl == NULL ? "" : "\"", trackInfo->isrc == NULL ? "null" : "\"", trackInfo->isrc == NULL ? "" : trackInfo->isrc, trackInfo->isrc == NULL ? "" : "\"", trackInfo->sourceName, trackInfo->position
+    "}", encoded, track_info->title, track_info->author, track_info->length, track_info->identifier, track_info->isStream ? "true" : "false", track_info->uri == NULL ? "null" : "\"", track_info->uri == NULL ? "" : track_info->uri, track_info->uri == NULL ? "" : "\"", track_info->artworkUrl == NULL ? "null" : "\"", track_info->artworkUrl == NULL ? "" : track_info->artworkUrl, track_info->artworkUrl == NULL ? "" : "\"", track_info->isrc == NULL ? "null" : "\"", track_info->isrc == NULL ? "" : track_info->isrc, track_info->isrc == NULL ? "" : "\"", track_info->sourceName, track_info->position
   );
 }
 
-int frequenc_partial_track_info_to_json(struct frequenc_track_info *trackInfo, char *result, size_t size) {
+int frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, char *result, size_t size) {
   return snprintf(result, size,
     "{"
       "\"title\":\"%s\","
@@ -142,110 +142,110 @@ int frequenc_partial_track_info_to_json(struct frequenc_track_info *trackInfo, c
       "\"isrc\":%s%s%s,"
       "\"sourceName\":\"%s\","
       "\"position\":%ld"
-    "}", trackInfo->title, trackInfo->author, trackInfo->length, trackInfo->identifier, trackInfo->isStream ? "true" : "false", trackInfo->uri == NULL ? "null" : "\"", trackInfo->uri == NULL ? "" : trackInfo->uri, trackInfo->uri == NULL ? "" : "\"", trackInfo->artworkUrl == NULL ? "null" : "\"", trackInfo->artworkUrl == NULL ? "" : trackInfo->artworkUrl, trackInfo->artworkUrl == NULL ? "" : "\"", trackInfo->isrc == NULL ? "null" : "\"", trackInfo->isrc == NULL ? "" : trackInfo->isrc, trackInfo->isrc == NULL ? "" : "\"", trackInfo->sourceName, trackInfo->position
+    "}", track_info->title, track_info->author, track_info->length, track_info->identifier, track_info->isStream ? "true" : "false", track_info->uri == NULL ? "null" : "\"", track_info->uri == NULL ? "" : track_info->uri, track_info->uri == NULL ? "" : "\"", track_info->artworkUrl == NULL ? "null" : "\"", track_info->artworkUrl == NULL ? "" : track_info->artworkUrl, track_info->artworkUrl == NULL ? "" : "\"", track_info->isrc == NULL ? "null" : "\"", track_info->isrc == NULL ? "" : track_info->isrc, track_info->isrc == NULL ? "" : "\"", track_info->sourceName, track_info->position
   );
 }
 
-int frequenc_json_to_track_info(struct frequenc_track_info *trackInfo, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize) {
+int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize) {
   path[pathLen] = "title";
   jsmnf_pair *title = jsmnf_find_path(pairs, json, path, pathSize);
   if (title == NULL) return -1;
 
-  char *titleStr = frequenc_safe_malloc(title->v.len + 1);
-  frequenc_fast_copy(json + title->v.pos, titleStr, title->v.len);
+  char *title_str = frequenc_safe_malloc(title->v.len + 1);
+  frequenc_fast_copy(json + title->v.pos, title_str, title->v.len);
 
   path[pathLen] = "author";
   jsmnf_pair *author = jsmnf_find_path(pairs, json, path, pathSize);
   if (author == NULL) return -1;
 
-  char *authorStr = frequenc_safe_malloc(author->v.len + 1);
-  frequenc_fast_copy(json + author->v.pos, authorStr, author->v.len);
+  char *author_str = frequenc_safe_malloc(author->v.len + 1);
+  frequenc_fast_copy(json + author->v.pos, author_str, author->v.len);
 
   path[pathLen] = "length";
   jsmnf_pair *length = jsmnf_find_path(pairs, json, path, pathSize);
   if (length == NULL) return -1;
 
-  char *lengthStr = frequenc_safe_malloc(length->v.len + 1);
-  frequenc_fast_copy(json + length->v.pos, lengthStr, length->v.len);
-  long lengthNum = strtol(lengthStr, NULL, 10);
-  free(lengthStr);
+  char *length_str = frequenc_safe_malloc(length->v.len + 1);
+  frequenc_fast_copy(json + length->v.pos, length_str, length->v.len);
+  long length_num = strtol(length_str, NULL, 10);
+  free(length_str);
 
   path[pathLen] = "identifier";
   jsmnf_pair *identifier = jsmnf_find_path(pairs, json, path, pathSize);
   if (identifier == NULL) return -1;
 
-  char *identifierStr = frequenc_safe_malloc(identifier->v.len + 1);
-  frequenc_fast_copy(json + identifier->v.pos, identifierStr, identifier->v.len);
+  char *identifier_str = frequenc_safe_malloc(identifier->v.len + 1);
+  frequenc_fast_copy(json + identifier->v.pos, identifier_str, identifier->v.len);
 
   path[pathLen] = "isStream";
   jsmnf_pair *isStream = jsmnf_find_path(pairs, json, path, pathSize);
   if (isStream == NULL) return -1;
-  bool isStreamBool = json[isStream->v.pos] == 't';
+  bool isStream_bool = json[isStream->v.pos] == 't';
 
   path[pathLen] = "uri";
   jsmnf_pair *uri = jsmnf_find_path(pairs, json, path, pathSize);
 
-  char *uriStr = frequenc_safe_malloc(uri->v.len + 1);
-  frequenc_fast_copy(json + uri->v.pos, uriStr, uri->v.len);
+  char *uri_str = frequenc_safe_malloc(uri->v.len + 1);
+  frequenc_fast_copy(json + uri->v.pos, uri_str, uri->v.len);
 
   path[pathLen] = "artworkUrl";
   jsmnf_pair *artworkUrl = jsmnf_find_path(pairs, json, path, pathSize);
 
-  char *artworkUrlStr = frequenc_safe_malloc(artworkUrl->v.len + 1);
-  frequenc_fast_copy(json + artworkUrl->v.pos, artworkUrlStr, artworkUrl->v.len);
+  char *artworkUrl_str = frequenc_safe_malloc(artworkUrl->v.len + 1);
+  frequenc_fast_copy(json + artworkUrl->v.pos, artworkUrl_str, artworkUrl->v.len);
 
   path[pathLen] = "isrc";
   jsmnf_pair *isrc = jsmnf_find_path(pairs, json, path, pathSize);
 
-  char *isrcStr = frequenc_safe_malloc(isrc->v.len + 1);
-  frequenc_fast_copy(json + isrc->v.pos, isrcStr, isrc->v.len);
+  char *isrc_str = frequenc_safe_malloc(isrc->v.len + 1);
+  frequenc_fast_copy(json + isrc->v.pos, isrc_str, isrc->v.len);
 
   path[pathLen] = "sourceName";
   jsmnf_pair *sourceName = jsmnf_find_path(pairs, json, path, pathSize);
   if (sourceName == NULL) return -1;
 
-  char *sourceNameStr = frequenc_safe_malloc(sourceName->v.len + 1);
-  frequenc_fast_copy(json + sourceName->v.pos, sourceNameStr, sourceName->v.len);
+  char *sourceName_str = frequenc_safe_malloc(sourceName->v.len + 1);
+  frequenc_fast_copy(json + sourceName->v.pos, sourceName_str, sourceName->v.len);
 
   path[pathLen] = "position";
   jsmnf_pair *position = jsmnf_find_path(pairs, json, path, pathSize);
   if (position == NULL) return -1;
 
-  char *positionStr = frequenc_safe_malloc(position->v.len + 1);
-  frequenc_fast_copy(json + position->v.pos, positionStr, position->v.len);
-  long positionNum = strtol(positionStr, NULL, 10);
-  free(positionStr);
+  char *position_str = frequenc_safe_malloc(position->v.len + 1);
+  frequenc_fast_copy(json + position->v.pos, position_str, position->v.len);
+  long position_num = strtol(position_str, NULL, 10);
+  free(position_str);
 
-  *trackInfo = (struct frequenc_track_info) {
-    .title = titleStr,
-    .author = authorStr,
-    .length = lengthNum,
-    .identifier = identifierStr,
-    .isStream = isStreamBool,
-    .uri = strcmp(uriStr, "null") == 0 ? NULL : uriStr,
-    .artworkUrl = strcmp(artworkUrlStr, "null") == 0 ? NULL : artworkUrlStr,
-    .isrc = strcmp(isrcStr, "null") == 0 ? NULL : isrcStr,
-    .sourceName = sourceNameStr,
-    .position = positionNum
+  *track_info = (struct frequenc_track_info) {
+    .title = title_str,
+    .author = author_str,
+    .length = length_num,
+    .identifier = identifier_str,
+    .isStream = isStream_bool,
+    .uri = strcmp(uri_str, "null") == 0 ? NULL : uri_str,
+    .artworkUrl = strcmp(artworkUrl_str, "null") == 0 ? NULL : artworkUrl_str,
+    .isrc = strcmp(isrc_str, "null") == 0 ? NULL : isrc_str,
+    .sourceName = sourceName_str,
+    .position = position_num
   };
 
-  if (strcmp(uriStr, "null") == 0) frequenc_cleanup(uriStr);
-  if (strcmp(artworkUrlStr, "null") == 0) frequenc_cleanup(artworkUrlStr);
-  if (strcmp(isrcStr, "null") == 0) frequenc_cleanup(isrcStr);
+  if (strcmp(uri_str, "null") == 0) frequenc_cleanup(uri_str);
+  if (strcmp(artworkUrl_str, "null") == 0) frequenc_cleanup(artworkUrl_str);
+  if (strcmp(isrc_str, "null") == 0) frequenc_cleanup(isrc_str);
 
   return 0;
 }
 
-void frequenc_free_track_info(struct frequenc_track_info *trackInfo) {
-  frequenc_cleanup(trackInfo->title);
-  frequenc_cleanup(trackInfo->author);
-  frequenc_cleanup(trackInfo->identifier);
-  frequenc_cleanup(trackInfo->uri);
-  frequenc_cleanup(trackInfo->artworkUrl);
-  frequenc_cleanup(trackInfo->isrc);
-  frequenc_cleanup(trackInfo->sourceName);
+void frequenc_free_track_info(struct frequenc_track_info *track_info) {
+  frequenc_cleanup(track_info->title);
+  frequenc_cleanup(track_info->author);
+  frequenc_cleanup(track_info->identifier);
+  frequenc_cleanup(track_info->uri);
+  frequenc_cleanup(track_info->artworkUrl);
+  frequenc_cleanup(track_info->isrc);
+  frequenc_cleanup(track_info->sourceName);
 }
 
-void frequenc_stringify_int(int length, char *result) {
-  snprintf(result, sizeof(result), "%d", length);
+void frequenc_stringify_int(int length, char *result, size_t result_size) {
+  snprintf(result, result_size, "%d", length);
 }

@@ -12,8 +12,8 @@ struct httpparser_request {
   char method[7];
   char *path;
   char version[4];
-  int headersLength;
-  int headersMaxLength;
+  int headers_length;
+  int headers_max_length;
   struct httpparser_header *headers;
   char *body;
 };
@@ -22,14 +22,13 @@ struct httpparser_response {
   char version[4];
   int status;
   char reason[32];
-  int headersLength;
-  int headersMaxLength;
+  int headers_length;
+  int headers_max_length;
   struct httpparser_header *headers;
   char *body;
-  size_t bodySize;
-  size_t bodyLength;
+  size_t body_length;
   int finished;
-  int chunkLength;
+  int chunk_length;
 };
 
 void httpparser_init_request(struct httpparser_request *httpRequest, struct httpparser_header *buffer, int length);

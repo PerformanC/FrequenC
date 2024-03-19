@@ -1,7 +1,7 @@
 /*
   libtstr: PerformanC's string utilities (library token string)
 
-  * Follows the same License as FrequenC.
+  License available on: licenses/performanc.license
 */
 
 #include "libtstr.h"

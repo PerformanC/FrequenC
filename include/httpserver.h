@@ -7,10 +7,10 @@
 #include "types.h"
 
 struct httpserver {
-  int *availableSockets;
+  int *available_sockets;
   struct csocket_server server;
-  size_t socketsCapacity;
-  size_t socketsAmount;
+  size_t sockets_capacity;
+  size_t sockets_length;
   struct httpserver_client *sockets;
   void (*handler)(int, char*);
 };
@@ -22,8 +22,8 @@ struct httpserver_header {
 struct httpserver_response {
   struct csocket_server_client *client;
   int status;
-  int headersLength;
-  int headersMaxLength;
+  int headers_length;
+  int headers_max_length;
   struct httpserver_header *headers;
   char *body;
 };
@@ -34,38 +34,32 @@ struct httpserver_client {
   void *data;
 };
 
-struct callbackData {
-  struct httpserver *server;
-  struct csocket_server_client *client;
-  struct httpparser_request *request;
-};
+void httpserver_start_server(struct httpserver *server);
 
-void startServer(struct httpserver *server);
+void httpserver_stop_server(struct httpserver *server);
 
-void stopServer(struct httpserver *server);
+void httpserver_disconnect_client(struct csocket_server_client *client);
 
-void disconnectClient(struct csocket_server_client *client);
+void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_header *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index));
 
-void handleRequest(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socketIndex, struct httpparser_request *request), int (*websocketCallback)(struct csocket_server_client *client, struct frequenc_ws_header *frameHeader), void (*disconnectCallback)(struct csocket_server_client *client, int socketIndex));
+void httpserver_set_socket_data(struct httpserver *server, int socket_index, void *data);
 
-void setSocketData(struct httpserver *server, int socketIndex, void *data);
+void *httpserver_get_socket_data(struct httpserver *server, int socket_index);
 
-void *getSocketData(struct httpserver *server, int socketIndex);
+void httpserver_init_response(struct httpserver_response *response, struct httpserver_header *headers, int length);
 
-void initResponse(struct httpserver_response *response, struct httpserver_header *headers, int length);
+void httpserver_set_response_socket(struct httpserver_response *response, struct csocket_server_client *client);
 
-void setResponseSocket(struct httpserver_response *response, struct csocket_server_client *client);
+void httpserver_set_response_status(struct httpserver_response *response, int status);
 
-void setResponseStatus(struct httpserver_response *response, int status);
+void httpserver_set_response_header(struct httpserver_response *response, char *key, char *value);
 
-void setResponseHeader(struct httpserver_response *response, char *key, char *value);
+void httpserver_set_response_body(struct httpserver_response *response, char *body);
 
-void setResponseBody(struct httpserver_response *response, char *body);
+void httpserver_send_response(struct httpserver_response *response);
 
-void sendResponse(struct httpserver_response *response);
+void httpserver_set_socket_data(struct httpserver *server, int socket, void *data);
 
-void setSocketData(struct httpserver *server, int socket, void *data);
-
-void upgradeSocket(struct httpserver *server, int socketIndex);
+void httpserver_upgrade_socket(struct httpserver *server, int socket_index);
 
 #endif /* HTTPSERVER_H_ */
