@@ -1,9 +1,8 @@
 /*
+  License available on: licenses/base64.license
 
-Source: https://nachtimwald.com/2017/11/18/base64-encode-and-decode-in-c/
-
-Modified to remove the need for malloc.
-Modified by: @ThePedroo
+  Modified to remove the need for malloc.
+  Modified by: @ThePedroo
 */
 
 #include <stdio.h>

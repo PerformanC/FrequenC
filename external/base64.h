@@ -1,3 +1,10 @@
+/*
+  License available on: licenses/base64.license
+
+  Modified to remove the need for malloc.
+  Modified by: @ThePedroo
+*/
+
 #ifndef BASE64_H
 #define BASE64_H
 
