@@ -22,7 +22,7 @@ struct _httpserver_connection_data {
   int socket_index;
   struct httpserver *server;
   void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request);
-  int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_header *frame_header);
+  int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_frame *frame_header);
   void (*disconnect_callback)(struct csocket_server_client *client, int socket_index);
 };
 
@@ -98,7 +98,7 @@ void _httpserver_add_available_socket(struct httpserver *server, int socket_inde
   }
 }
 
-void *listenPayload(void *args) {
+void *listen_messages(void *args) {
   struct _httpserver_connection_data *connectionData = (struct _httpserver_connection_data *)args;
 
   struct csocket_server_client client = connectionData->client;
@@ -114,9 +114,9 @@ void *listenPayload(void *args) {
     printf("[httpserver]: Received payload.\n - Socket: %d\n - Socket index: %d\n - Payload size: %d\n", csocket_server_client_get_id(&client), socket_index, payload_size);
 
     if (server->sockets[socket_index].upgraded) {
-      struct frequenc_ws_header frame_header = frequenc_parse_ws_header(payload);
+      struct frequenc_ws_frame ws_frame = frequenc_parse_ws_frame(payload);
 
-      if (connectionData->websocket_callback(&client, &frame_header)) goto disconnect;
+      if (connectionData->websocket_callback(&client, &ws_frame)) goto disconnect;
 
       continue;
     }
@@ -173,7 +173,7 @@ void *listenPayload(void *args) {
   }
 }
 
-void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_header *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index)) {
+void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_frame *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index)) {
   int socket = 0;
 
   struct csocket_server_client client = { 0 };
@@ -201,7 +201,7 @@ void httpserver_handle_request(struct httpserver *server, void (*callback)(struc
 
     struct cthreads_thread thread;
     struct cthreads_args cargs;
-    cthreads_thread_create(&thread, NULL, listenPayload, args, &cargs);
+    cthreads_thread_create(&thread, NULL, listen_messages, args, &cargs);
 
     server->sockets_length++;
   }
@@ -333,11 +333,10 @@ char *_getStatusText(int status) {
   return "Unknown";
 }
 
-size_t calculateResponseLength(struct httpserver_response *response) {
+size_t _calculate_response_length(struct httpserver_response *response) {
   size_t length = 0;
-
-  char header[1024];
-  length += snprintf(header, sizeof(header), "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
+  
+  length += snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
 
   for (int i = 0; i < response->headers_length; i++) {
     length += strlen(response->headers[i].key);
@@ -357,31 +356,28 @@ size_t calculateResponseLength(struct httpserver_response *response) {
 void httpserver_send_response(struct httpserver_response *response) {
   httpserver_set_response_header(response, "Connection", "close");
 
-  size_t length = calculateResponseLength(response);
+  size_t length = _calculate_response_length(response);
 
-  char *responseString = frequenc_safe_malloc(length + 1);
+  char *response_string = frequenc_safe_malloc(length + 1);
 
-  snprintf(responseString, length, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
+  snprintf(response_string, length, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
 
   for (int i = 0; i < response->headers_length; i++) {
-    strcat(responseString, response->headers[i].key);
-
-    strcat(responseString, ": ");
-
-    strcat(responseString, response->headers[i].value);
-
-    strcat(responseString, "\r\n");
+    strcat(response_string, response->headers[i].key);
+    strcat(response_string, ": ");
+    strcat(response_string, response->headers[i].value);
+    strcat(response_string, "\r\n");
   }
 
-  strcat(responseString, "\r\n");
+  strcat(response_string, "\r\n");
 
   if (response->body != NULL) {
-    strcat(responseString, response->body);
+    strcat(response_string, response->body);
   }
 
-  csocket_server_send(response->client, responseString, length);
+  csocket_server_send(response->client, response_string, length);
 
-  free(responseString);
+  free(response_string);
 }
 
 void httpserver_upgrade_socket(struct httpserver *server, int socket_index) {

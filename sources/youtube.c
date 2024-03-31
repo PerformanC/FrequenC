@@ -12,8 +12,9 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   /* todo: add YouTube music support based on NodeLink */
   (void)type;
 
-  char body[1024];
-  snprintf(body, sizeof(body),
+  size_t body_size = (271 + strlen(_frequenc_youtube_get_client_name(type)) + strlen(_frequenc_youtube_get_client_version(type)) + strlen(query) + 1) * sizeof(char);
+  char *body = frequenc_safe_malloc(body_size);
+  snprintf(body, body_size,
   "{"
     "\"context\":{"
       "\"thirdParty\":{"
@@ -57,11 +58,13 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     /* Should be printed by httpclient
        printf("[youtube]: Failed to make request.\n"); */
 
+    free(body);
+
     char *error = frequenc_safe_malloc((60 + 1) * sizeof(char));
-    snprintf(error, 60 + 1,
+    snprintf(error, (60 + 1) * sizeof(char),
       "{"
         "\"loadType\":\"error\","
-        "\"error\":\"Failed to connect to YouTube.\""
+        "\"data\":\"Failed to connect to YouTube.\""
       "}");
 
     struct tstr_string result = {
@@ -76,45 +79,57 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   httpclient_shutdown(&response);
 
   jsmn_parser parser;
-  jsmntok_t *tokens = frequenc_safe_malloc((1024 * 1024 * 1) * sizeof(jsmntok_t)); /* TODO: Replace by auto load */
+  jsmntok_t *tokens = NULL;
+  unsigned num_tokens = 0;
 
   jsmn_init(&parser);
-  int r = jsmn_parse(&parser, response.body, response.body_length, tokens, 1024 * 1024 * 1);
-  if (r < 0) {
-    printf("[youtube]: Failed to parse JSON.\n");
+  int r = jsmn_parse_auto(&parser, response.body, response.body_length, &tokens, &num_tokens);
+  if (r <= 0) {
+    free(tokens);
+    free(body);
 
-    char error[] =
+    printf("[youtube]: Failed to parse JSON: %d\n", r);
+
+    char *error = frequenc_safe_malloc((55 + 1) * sizeof(char));
+    snprintf(error, (55 + 1) * sizeof(char),
       "{"
         "\"loadType\":\"error\","
-        "\"error\":\"Failed to parse JSON.\""
-      "}";
+        "\"data\":\"Failed to parse the JSON.\""
+      "}");
 
     struct tstr_string result = {
       .string = error,
-      .length = sizeof(error) - 1
+      .length = 55,
+      .allocated = true
     };
 
     return result;
   }
 
   jsmnf_loader loader;
-  jsmnf_pair *pairs = frequenc_safe_malloc((1024 * 1024 * 1) * sizeof(jsmnf_pair)); /* TODO: Replace by auto load */
+  jsmnf_pair *pairs = NULL;
+  unsigned num_pairs = 0;
 
   jsmnf_init(&loader);
-  r = jsmnf_load(&loader, response.body, tokens, parser.toknext, pairs, 1024 * 1024 * 1);
-  if (r < 0) {
-    printf("[youtube]: Error while loading tokens.\n");
+  r = jsmnf_load_auto(&loader, response.body, tokens, num_tokens, &pairs, &num_pairs);
+  if (r <= 0) {
+    free(pairs);
+    free(tokens);
+    free(body);
 
-    char error[] =
+    printf("[youtube]: Error while loading tokens: %d\n", r);
+
+    char *error = frequenc_safe_malloc((61 + 1) * sizeof(char));
+    snprintf(error, (61 + 1) * sizeof(char),
       "{"
         "\"loadType\":\"error\","
-        "\"error\":\"Failed to load JSON tokens.\""
-      "}";
+        "\"data\":\"Failed to load the JSON tokens.\""
+      "}");
 
     struct tstr_string result = {
       .string = error,
-      .length = sizeof(error) - 1,
-      .allocated = false
+      .length = 61,
+      .allocated = true
     };
 
     return result;
@@ -124,24 +139,23 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   jsmnf_pair *error = jsmnf_find_path(pairs, response.body, path, 1);
 
   if (error != NULL) {
+    free(pairs);
+    free(tokens);
+    free(body);
+
     printf("[youtube]: Error: %.*s\n", (int)error->v.len, response.body + error->v.pos);
 
-    char *error_str = frequenc_safe_malloc((error->v.len + 1) * sizeof(char));
-    frequenc_fast_copy(response.body + error->v.pos, error_str, error->v.len);
-
-    char error_json[1024];
-    int error_json_length = snprintf(error_json, sizeof(error_json),
+    char *error_json = malloc(((30 + error->v.len) + 1) * sizeof(char));
+    int error_json_length = snprintf(error_json, ((30 + error->v.len) + 1) * sizeof(char),
       "{"
         "\"loadType\":\"error\","
-        "\"error\":\"%s\""
-      "}", error_str);
-
-    free(error_str);
+        "\"data\":\"%.*s\""
+      "}", (int)error->v.len, response.body + error->v.pos);
 
     struct tstr_string result = {
       .string = error_json,
       .length = error_json_length,
-      .allocated = false
+      .allocated = true
     };
 
     return result;
@@ -153,10 +167,10 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
   jsmnf_pair *contents = jsmnf_find_path(pairs, response.body, path, 3);
 
-  char iStr[11 + 1];
-  snprintf(iStr, sizeof(iStr), "%d", contents->size - 1); /* TODO: Replace snprintf */
+  char i_str[11 + 1];
+  snprintf(i_str, sizeof(i_str), "%d", contents->size - 1); /* TODO: Replace snprintf */
 
-  path[3] = iStr;
+  path[3] = i_str;
   path[4] = "itemSectionRenderer";
   path[5] = "contents";
 
@@ -282,11 +296,11 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       char *title_str = frequenc_safe_malloc((title->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + title->v.pos, title_str, title->v.len);
 
-      char *uri_str = frequenc_safe_malloc((sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1) * sizeof(char));
-      snprintf(uri_str, sizeof("https://www.youtube.com/watch?v=") - 1 + identifier->v.len + 1, "https://www.youtube.com/watch?v=%s", identifier_str);
+      char *uri_str = frequenc_safe_malloc(((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char));
+      snprintf(uri_str, ((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char), "https://www.youtube.com/watch?v=%s", identifier_str);
 
-      char *artworkUrl_str = frequenc_safe_malloc((sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char));
-      snprintf(artworkUrl_str, sizeof("https://i.ytimg.com/vi/") - 1 + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1, "https://i.ytimg.com/vi/%s/maxresdefault.jpg", identifier_str);
+      char *artworkUrl_str = frequenc_safe_malloc(((sizeof("https://i.ytimg.com/vi/") - 1) + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char));
+      snprintf(artworkUrl_str, ((sizeof("https://i.ytimg.com/vi/") - 1) + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char), "https://i.ytimg.com/vi/%s/maxresdefault.jpg", identifier_str);
 
       struct frequenc_track_info trackInfo = {
         .title = title_str,
@@ -302,7 +316,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       };
 
       char *encodedTrack = NULL;
-      encodeTrack(&trackInfo, &encodedTrack);
+      frequenc_encode_track(&trackInfo, &encodedTrack);
 
       char video_json[2048];
       frequenc_track_info_to_json(&trackInfo, encodedTrack, video_json, sizeof(video_json));
@@ -335,9 +349,10 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     free(response.body);
     free(pairs);
     free(tokens);
+    free(body);
 
     char *response_msg = frequenc_safe_malloc((20 + 1) * sizeof(char));
-    snprintf(response_msg, 20 + 1,
+    snprintf(response_msg, (20 + 1) * sizeof(char),
       "{"
         "\"loadType\":\"empty\""
       "}");
@@ -357,6 +372,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   free(pairs);
   free(tokens);
   httpclient_free(&response);
+  free(body);
 
   struct tstr_string result = {
     .string = response_str,

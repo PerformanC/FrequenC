@@ -7,6 +7,8 @@
  *   and doesn't remove this comment.
  */
 
+import fs from 'fs'
+
 import { makeRequest } from './utils.js'
 
 const HTTP_METHODS = [ 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS' ]
@@ -25,17 +27,36 @@ const testInfo = {
   type: 'HTTP-API',
   baseUrl: null,
   password: null,
+  options: {
+    curlCommands: {
+      enabled: false,
+      fd: null
+    }
+  },
   tests: []
 }
 
+/**
+ * Tester.init({
+ *  baseUrl: 'http://localhost:3000',
+ *  password: 'password',
+ *  giveCURLCommands: true
+ * })
+ */
 function init(obj) {
   if (!obj.baseUrl) throw new Error('baseUrl is required')
 
-  testInfo.baseUrl = obj.baseUrl
-
   if (!obj.password) throw new Error('password is required')
 
+  if (typeof obj.giveCURLCommands !== 'boolean') throw new Error('giveCURLCommands must be a boolean')
+
+  testInfo.baseUrl = obj.baseUrl
   testInfo.password = obj.password
+
+  if (obj.giveCURLCommands) {
+    testInfo.options.curlCommands.enabled = true
+    testInfo.options.curlCommands.fd = fs.openSync(`./test-report-${process.hrtime.bigint()}.txt`, 'w')
+  }
 
   console.log(`[The Tester]: Tester initialized with ${obj.baseUrl} and ${obj.password}`)
 }
@@ -45,6 +66,7 @@ function init(obj) {
  *   name: 'Test name',
  *   path: '/test',
  *   permittedMethods: [ 'GET' ],
+ *   disableErrorTests: false,
  *   tests: [{
  *     method: 'GET',
  *     expected: {
@@ -79,6 +101,8 @@ function addTest(obj) {
   if (!obj.permittedMethods) throw new Error('permittedMethods is required')
   if (!Array.isArray(obj.permittedMethods)) throw new Error('permittedMethods must be an array')
 
+  if (typeof obj.disableErrorTests !== 'boolean') throw new Error('disableErrorTests must be a boolean')
+
   obj.permittedMethods.forEach((method) => {
     if (!HTTP_METHODS.includes(method)) throw new Error(`Invalid method: ${method}`)
   })
@@ -87,9 +111,13 @@ function addTest(obj) {
   if (!Array.isArray(obj.tests)) throw new Error('tests must be an array')
 
   obj.tests.forEach((test) => {
+    if (test.query && typeof test.query !== 'string') throw new Error('query must be a string')
+
     if (!test.method) throw new Error('method is required')
     if (typeof test.method !== 'string') throw new Error('method must be a string')
     if (!HTTP_METHODS.includes(test.method)) throw new Error(`Invalid method: ${test.method}`)
+
+    if (test.body && typeof test.body !== 'string') throw new Error('body must be a string')
 
     if (!test.expected) throw new Error('expected is required')
     if (typeof test.expected !== 'object') throw new Error('expected must be an object')
@@ -100,6 +128,12 @@ function addTest(obj) {
 
     if (test.expected.headers) {
       if (typeof test.expected.headers !== 'object') throw new Error('expected.headers must be an object')
+
+      Object.keys(test.expected.headers).forEach((header) => {
+        if (typeof header !== 'string') throw new Error('expected.headers keys must be strings')
+
+        if (typeof test.expected.headers[header] !== 'string') throw new Error('expected.headers values must be strings')
+      })
     }
 
     if (test.expected.body) {
@@ -179,9 +213,34 @@ async function run() {
   let failed = 0
   let testsLength = 0
 
+  const textResult = [ '# The Tester v2 - Results', '', '# Normal Tests', '', '' ]
+
   await tests.nForEach(async (test) => {
+    textResult.push(`## ${test.name} - vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n`)
+
     await test.tests.nForEach(async (test2, i) => {
       testsLength++
+
+      textResult.push(`### ${test.name} #${i + 1}`)
+      textResult.push(` - Passed? __THE_TESTER_${test.name}_${i}__`)
+
+      const cURLCommand = [ 'curl' ]
+
+      cURLCommand.push(`"${testInfo.baseUrl}${test.path}${test2.query || ''}"`)
+      cURLCommand.push('-X', test2.method.toUpperCase())
+      if (test2.body) cURLCommand.push('-d', `"${test2.body}"`)
+      cURLCommand.push('-H', `"Authorization: ${testInfo.password}"`)
+
+      Object.keys(test2.expected.headers || {}).forEach((header) => {
+        cURLCommand.push('-H', `"${header}: ${test2.expected.headers[header]}"`)
+      })
+
+      textResult.push(` - cURL Command: ${cURLCommand.join(' ')}`)
+      textResult.push(` - Method: ${test2.method}`)
+      textResult.push(` - Path: ${test.path}`)
+      textResult.push(` - Query: ${test2.query || 'N/A'}`)
+      textResult.push(` - Body: ${test2.body || 'N/A'}`)
+      textResult.push(` - Expected status code: ${test2.expected.statusCode}\n`)
 
       const res = await makeRequest(`${testInfo.baseUrl}${test.path}${test2.query || ''}`, {
         headers: {
@@ -196,6 +255,12 @@ async function run() {
 
         failed++
 
+        textResult.forEach((line, j) => {
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+
+          textResult[j] = ` - Passed? No. The request failed: ${res.error}`
+        })
+
         return false
       }
 
@@ -203,6 +268,12 @@ async function run() {
         console.error(`[The Tester]: Status code test of ${test.name} #${i + 1} failed.\n - Expected: ${test2.expected.statusCode}\n - Actual: ${res.statusCode}`)
 
         failed++
+
+        textResult.forEach((line, j) => {
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+  
+          textResult[j] = ' - Passed? No. The status code is incorrect.'
+        })
 
         return false
       }
@@ -213,6 +284,12 @@ async function run() {
         console.error(`[The Tester]: Headers test of ${test.name} #${i + 1} failed.\n - Expected: ${headersResult.message[0]}\n - Actual: ${headersResult.message[1]}`)
 
         failed++
+
+        textResult.forEach((line, j) => {
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+  
+          textResult[j] = ' - Passed? No. The headers are incorrect.'
+        })
 
         return false
       }
@@ -225,6 +302,12 @@ async function run() {
 
           failed++
 
+          textResult.forEach((line, j) => {
+            if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+    
+            textResult[j] = ' - Passed? No. The body is not a JSON.'
+          })
+
           return false
         }
       }
@@ -236,12 +319,28 @@ async function run() {
 
         failed++
 
+        textResult.forEach((line, j) => {
+          if (!line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+  
+          textResult[j] = ' - Passed? No. The body is incorrect.'
+        })
+
         return false
       }
 
+      textResult.forEach((line, j) => {
+        if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+
+        textResult[j] = ' - Passed? Yes.'
+      })
+
       passed++
     })
+
+    textResult.push(`\n ## ${test.name} - ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n`)
   })
+
+  textResult.push('', '', '# Error Tests', '', '')
 
   console.log(`[The Tester]: ${passed} tests passed, ${failed} tests failed. ${passed / testsLength * 100}% passed. ${failed / testsLength * 100}% failed.`)
 
@@ -252,10 +351,28 @@ async function run() {
   testsLength = 0
 
   await tests.nForEach(async (test) => {
+    if (test.disableErrorTests) return false
+
+    textResult.push(`## ${test.name} - vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n`)
+
     await HTTP_METHODS.nForEach(async (method) => {
       if (test.permittedMethods.includes(method)) return false
 
       testsLength++
+
+      textResult.push(`### ${test.name} #${method}`)
+      textResult.push(` - Passed? __THE_TESTER_${test.name}_${method}__`)
+
+      const cURLCommand = [ 'curl' ]
+
+      cURLCommand.push(`"${testInfo.baseUrl}${test.path}"`)
+      cURLCommand.push('-X', method.toUpperCase())
+      cURLCommand.push('-H', `"Authorization: ${testInfo.password}"`)
+
+      textResult.push(` - cURL Command: ${cURLCommand.join(' ')}`)
+      textResult.push(` - Method: ${method}`)
+      textResult.push(` - Path: ${test.path}`)
+      textResult.push(` - Expected status code: 405\n`)
 
       const res = await makeRequest(`${testInfo.baseUrl}${test.path}`, {
         headers: {
@@ -269,6 +386,12 @@ async function run() {
 
         failed++
 
+        textResult.forEach((line, j) => {
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${method}__`) return;
+
+          textResult[j] = ` - Passed? No. The request failed: ${res.error}`
+        })
+
         return false
       }
 
@@ -277,16 +400,36 @@ async function run() {
 
         failed++
 
+        textResult.forEach((line, j) => {
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${method}__`) return;
+
+          textResult[j] = ' - Passed? No. The status code is incorrect.'
+        })
+
         return false
       }
 
+      textResult.forEach((line, j) => {
+        if (line !== ` - Passed? __THE_TESTER_${test.name}_${method}__`) return;
+
+        textResult[j] = ' - Passed? Yes.'
+      })
+
       passed++
     })
+
+    textResult.push(`\n ## ${test.name} - ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n`)
   })
 
   console.log(`[The Tester]: ${passed} error tests passed, ${failed} error tests failed. ${passed / testsLength * 100}% passed. ${failed / testsLength * 100}% failed.`)
 
   console.log(`[The Tester]: All tests finished.`)
+
+  if (testInfo.options.curlCommands.enabled) {
+    fs.writeSync(testInfo.options.curlCommands.fd, textResult.join('\n'))
+
+    fs.closeSync(testInfo.options.curlCommands.fd)
+  }
 }
 
 export default {

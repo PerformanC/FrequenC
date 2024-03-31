@@ -20,9 +20,9 @@
 #include "youtube.h"
 /* Sources end */
 
-#define VERSION "2.0.0"
+#define VERSION "1.0.0"
 #define VERSION_LENGTH "5"
-#define VERSION_MAJOR 2
+#define VERSION_MAJOR 1
 #define VERSION_MINOR 0
 #define VERSION_PATCH 0
 
@@ -83,6 +83,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     struct httpparser_header *sessionId = httpparser_get_header(request, "Session-Id");
 
+    /* todo: add optional Bot-Name header (?) */
+
     struct httpserver_response response;
     struct httpserver_header headerBuffer[5];
     httpserver_init_response(&response, headerBuffer, 5);
@@ -105,10 +107,10 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     if (sessionId != NULL && (selectedClient = tablec_get(&clients, sessionId->value)) != NULL && ((struct client_authorization *)selectedClient->value)->disconnected) {
       cthreads_mutex_unlock(&mutex);
 
-      struct client_authorization *clientAuthorization = selectedClient->value;
+      struct client_authorization *client_auth = selectedClient->value;
 
-      clientAuthorization->userId = userId->value;
-      clientAuthorization->client = client;
+      client_auth->userId = userId->value;
+      client_auth->client = client;
 
       char payload[1024];
       int payloadLength = snprintf(payload, sizeof(payload),
@@ -137,7 +139,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     cthreads_mutex_unlock(&mutex);
 
-    struct client_authorization *clientAuthorization = frequenc_safe_malloc(sizeof(struct client_authorization));
+    struct client_authorization *client_auth = frequenc_safe_malloc(sizeof(struct client_authorization));
 
     char *sessionIdGen = frequenc_safe_malloc((16 + 1) * sizeof(char));
 
@@ -150,9 +152,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         goto generateSession;
       }
     
-    clientAuthorization->userId = userId->value;
-    clientAuthorization->client = client;
-    clientAuthorization->disconnected = false;
+    client_auth->userId = userId->value;
+    client_auth->client = client;
+    client_auth->disconnected = false;
 
     char payload[1024];
     int payloadLength = snprintf(payload, sizeof(payload),
@@ -173,7 +175,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_send_ws_response(&wsResponse);
 
     cthreads_mutex_lock(&mutex);
-    if (tablec_set(&clients, sessionIdGen, clientAuthorization) == -1) {
+    if (tablec_set(&clients, sessionIdGen, client_auth) == -1) {
       cthreads_mutex_unlock(&mutex);
       printf("[main]: Hashtable is full, resizing.\n");
 
@@ -192,7 +194,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       free(oldClients.buckets);
 
       cthreads_mutex_lock(&mutex);
-      tablec_set(&clients, sessionIdGen, clientAuthorization);
+      tablec_set(&clients, sessionIdGen, client_auth);
     }
     cthreads_mutex_unlock(&mutex);
 
@@ -225,11 +227,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(snprintf(payload, sizeof(payload),
       "{"
         "\"version\":{"
-          "\"semver\":\"%s\","
           "\"major\":%d,"
           "\"minor\":%d,"
-          "\"patch\":%d,"
-          "\"preRelease\":null"
+          "\"patch\":%d"
         "},"
         "\"builtTime\":-1,"
         "\"git\":{"
@@ -237,12 +237,10 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
           "\"commit\":\"%s\","
           "\"commitTime\":%s"
         "},"
-        "\"isFrequenC\":true,"
         "\"sourceManagers\":%s,"
-        "\"filters\":%s,"
-        "\"plugins\":[]"
+        "\"filters\":%s"
       "}",
-      VERSION, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GIT_BRANCH, GIT_COMMIT, GIT_COMMIT_TIME, SUPPORTED_SOURCES, SUPPORTED_FILTERS),
+      VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GIT_BRANCH, GIT_COMMIT, GIT_COMMIT_TIME, SUPPORTED_SOURCES, SUPPORTED_FILTERS),
       payloadLength,
       sizeof(payloadLength)
     );
@@ -269,25 +267,32 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    jsmn_parser parser;
-    jsmntok_t tokens[256];
-
     struct httpparser_header *contentLength = httpparser_get_header(request, "Content-Length");
 
+    jsmn_parser parser;
+    jsmntok_t *tokens = NULL;
+    unsigned num_tokens = 0;
+
     jsmn_init(&parser);
-    int r = jsmn_parse(&parser, request->body, atoi(contentLength->value), tokens, 256);
-    if (r < 0) {
+    int r = jsmn_parse_auto(&parser, request->body, atoi(contentLength->value), &tokens, &num_tokens);
+    if (r <= 0) {
+      free(tokens);
+
       printf("[main]: Failed to parse JSON: %d\n", r);
 
       goto bad_request;
     }
 
     jsmnf_loader loader;
-    jsmnf_pair pairs[256];
+    jsmnf_pair *pairs = NULL;
+    unsigned num_pairs = 0;
 
     jsmnf_init(&loader);
-    r = jsmnf_load(&loader, request->body, tokens, parser.toknext, pairs, 256);
-    if (r < 0) {
+    r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
+    if (r <= 0) {
+      free(tokens);
+      free(pairs);
+      
       printf("[main]: Failed to load JSON: %d\n", r);
 
       goto bad_request;
@@ -302,23 +307,23 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     for (int i = 0; i < pairs->size; i++) {
       f = &pairs->fields[i];
 
-      char encodedTrack[512];
-      snprintf(encodedTrack, sizeof(encodedTrack), "%.*s", (int)f->v.len, request->body + f->v.pos);
+      char encoded_track[512];
+      snprintf(encoded_track, sizeof(encoded_track), "%.*s", (int)f->v.len, request->body + f->v.pos);
 
-      struct frequenc_track_info decodedTrack = { 0 };
-      int status = decodeTrack(&decodedTrack, encodedTrack);
+      struct frequenc_track_info decoded_track = { 0 };
+      int status = frequenc_decode_track(&decoded_track, encoded_track);
 
       if (status == -1) goto bad_request;
 
       char payload[2048];
-      frequenc_partial_track_info_to_json(&decodedTrack, payload, sizeof(payload));
+      frequenc_partial_track_info_to_json(&decoded_track, payload, sizeof(payload));
 
       tstr_append(arrayResponse, payload, &arrayResponseLength, 0);
 
       if (i != pairs->size - 1)
         tstr_append(arrayResponse, ",", &arrayResponseLength, 0);
 
-      frequenc_free_track_info(&decodedTrack);
+      frequenc_free_track_info(&decoded_track);
     }
 
     arrayResponse[arrayResponseLength] = ']';
@@ -341,6 +346,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     free(arrayResponse);
+    free(pairs);
+    free(tokens);
   }
 
   else if (strncmp(request->path, "/v1/decodetrack", sizeof("/v1/decodetrack") - 1) == 0) {
@@ -356,17 +363,21 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     if (query == NULL || query->value[0] == '\0') goto bad_request;
 
-    char decodedQuery[512];
-    urldecoder_decode(decodedQuery, query->value);
+    char *decoded_query = frequenc_safe_malloc((urldecoder_decode_length(query->value) + 1) * sizeof(char));
+    urldecoder_decode(decoded_query, query->value);
 
-    struct frequenc_track_info decodedTrack;
-    int status = decodeTrack(&decodedTrack, decodedQuery);
+    struct frequenc_track_info decoded_track;
+    int status = frequenc_decode_track(&decoded_track, decoded_query);
 
-    if (status == -1) goto bad_request;
+    if (status == -1) {
+      free(decoded_query);
+
+      goto bad_request;
+    }
 
     char payload[2048];
     char payloadLength[3 + 1];
-    frequenc_stringify_int(frequenc_track_info_to_json(&decodedTrack, decodedQuery, payload, sizeof(payload)), payloadLength, sizeof(payloadLength));
+    frequenc_stringify_int(frequenc_track_info_to_json(&decoded_track, decoded_query, payload, sizeof(payload)), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
@@ -380,61 +391,77 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     httpserver_send_response(&response);
 
-    freeTrack(&decodedTrack);
+    frequenc_free_track(&decoded_track);
+    free(decoded_query);
   }
 
   else if (strcmp(request->path, "/v1/encodetracks") == 0) {
     if (strcmp(request->method, "POST") != 0) goto method_not_allowed;
 
-    if (!request->body) goto bad_request;
+    if (!request->body) {
+      printf("[main]: No body found.\n");
 
-    jsmn_parser parser;
-    jsmntok_t tokens[256];
+      goto bad_request;
+    }
 
     struct httpparser_header *contentLength = httpparser_get_header(request, "Content-Length");
 
+    jsmn_parser parser;
+    jsmntok_t *tokens = NULL;
+    unsigned num_tokens = 0;
+
     jsmn_init(&parser);
-    int r = jsmn_parse(&parser, request->body, atoi(contentLength->value), tokens, 256);
-    if (r < 0) {
+    int r = jsmn_parse_auto(&parser, request->body, atoi(contentLength->value), &tokens, &num_tokens);
+    if (r <= 0) {
+      free(tokens);
+
       printf("[main]: Failed to parse JSON: %d\n", r);
 
       goto bad_request;
     }
 
     jsmnf_loader loader;
-    jsmnf_pair pairs[256];
+    jsmnf_pair *pairs = NULL;
+    unsigned num_pairs = 0;
 
     jsmnf_init(&loader);
-    r = jsmnf_load(&loader, request->body, tokens, parser.toknext, pairs, 256);
-    if (r < 0) {
+    r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
+    if (r <= 0) {
+      free(tokens);
+      free(pairs);
+      
       printf("[main]: Failed to load JSON: %d\n", r);
 
       goto bad_request;
     }
 
-    char *arrayResponse = frequenc_safe_malloc((1024 * pairs->size) * sizeof(char));
+    if (pairs->size == 0) goto bad_request;
+
+    char *arrayResponse = frequenc_safe_malloc((2048 * pairs->size) * sizeof(char));
     size_t arrayResponseLength = 1;
     arrayResponse[0] = '[';
 
     for (int i = 0; i < pairs->size; i++) {
-      char iStr[10 + 1];
-      snprintf(iStr, sizeof(iStr), "%d", i);
+      char i_str[10 + 1];
+      snprintf(i_str, sizeof(i_str), "%d", i);
 
-      struct frequenc_track_info decodedTrack = { 0 };
-      char *path[2] = { iStr };
-      if (frequenc_json_to_track_info(&decodedTrack, pairs, request->body, path, 1, sizeof(path) / sizeof(*path)) == -1) {
-        frequenc_free_track_info(&decodedTrack);
+      struct frequenc_track_info decoded_track = { 0 };
+      char *path[2] = { i_str };
+      if (frequenc_json_to_track_info(&decoded_track, pairs, request->body, path, 1, sizeof(path) / sizeof(*path)) == -1) {
+        frequenc_free_track_info(&decoded_track);
         free(arrayResponse);
 
         goto bad_request;
       }
 
-      char *encodedTrack = NULL;
-      int status = encodeTrack(&decodedTrack, &encodedTrack);
+      char *encoded_track = NULL;
+      int status = frequenc_encode_track(&decoded_track, &encoded_track);
 
       if (status == -1) {
-        frequenc_free_track_info(&decodedTrack);
+        frequenc_free_track_info(&decoded_track);
         free(arrayResponse);
+        free(pairs);
+        free(tokens);
 
         goto bad_request;
       }
@@ -442,7 +469,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       arrayResponse[arrayResponseLength] = '"';
       arrayResponseLength++;
 
-      tstr_append(arrayResponse, encodedTrack, &arrayResponseLength, 0);
+      tstr_append(arrayResponse, encoded_track, &arrayResponseLength, 0);
 
       if (i != pairs->size - 1) {
         tstr_append(arrayResponse, "\",", &arrayResponseLength, 0);
@@ -450,8 +477,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         tstr_append(arrayResponse, "\"", &arrayResponseLength, 0);
       }
 
-      frequenc_free_track_info(&decodedTrack);
-      free(encodedTrack);
+      frequenc_free_track_info(&decoded_track);
+      free(encoded_track);
     }
 
     tstr_append(arrayResponse, "]", &arrayResponseLength, 0);
@@ -472,6 +499,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     free(arrayResponse);
+    free(pairs);
+    free(tokens);
   }
 
   else if (strcmp(request->path, "/v1/encodetrack") == 0) {
@@ -501,17 +530,17 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct frequenc_track_info decodedTrack = { 0 };
+    struct frequenc_track_info decoded_track = { 0 };
     char *path[1] = { 0 };
-    if (frequenc_json_to_track_info(&decodedTrack, pairs, request->body, path, 0, sizeof(path) / sizeof(*path)) == -1) {
-      frequenc_free_track_info(&decodedTrack);
+    if (frequenc_json_to_track_info(&decoded_track, pairs, request->body, path, 0, sizeof(path) / sizeof(*path)) == -1) {
+      frequenc_free_track_info(&decoded_track);
 
       goto bad_request;
     }
 
-    char *encodedTrack = NULL;
+    char *encoded_track = NULL;
     char payloadLength[4];
-    frequenc_stringify_int(encodeTrack(&decodedTrack, &encodedTrack), payloadLength, sizeof(payloadLength));
+    frequenc_stringify_int(frequenc_encode_track(&decoded_track, &encoded_track), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
     struct httpserver_header headerBuffer[3];
@@ -521,12 +550,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "text/plain");
     httpserver_set_response_header(&response, "Content-Length", payloadLength);
-    httpserver_set_response_body(&response, encodedTrack);
+    httpserver_set_response_body(&response, encoded_track);
     
     httpserver_send_response(&response);
 
-    frequenc_free_track_info(&decodedTrack);
-    free(encodedTrack);
+    frequenc_free_track_info(&decoded_track);
+    free(encoded_track);
   }
 
   /* todo: identify bottleneck while doing loadtracks, possibly in httpclient */
@@ -555,7 +584,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     // if (strncmp(identifierDecoded, "ytmsearch:", sizeof("ytmsearch:") - 1) == 0)
     //   result = frequenc_youtube_search(identifierDecoded + (sizeof("ytmsearch:") - 1), 1);
 
-
     char payloadLength[8 + 1];
     frequenc_stringify_int(result.length, payloadLength, sizeof(payloadLength));
 
@@ -574,8 +602,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     if (result.allocated)
       free(result.string);
   }
-
-  // else if (strncmp())
 
   else {
     struct httpserver_response notFoundResponse;
@@ -617,26 +643,26 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   }
 }
 
-int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_header *frame_header) {
+int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_frame *ws_frame) {
   printf("[main]: WS message: %d\n", csocket_server_client_get_id(client));
 
-  if (frame_header->opcode == 8) {
+  if (ws_frame->opcode == 8) {
     httpserver_disconnect_client(client);
 
     return 1;
   }
 
   printf("[main]: Socket: %d\n", csocket_server_client_get_id(client));
-  printf("[main]: Opcode: %d\n", frame_header->opcode);
-  printf("[main]: FIN: %d\n", frame_header->fin);
-  printf("[main]: Length: %zu\n", frame_header->payload_length);
-  printf("[main]: Buffer: |%s|\n", frame_header->buffer);
+  printf("[main]: Opcode: %d\n", ws_frame->opcode);
+  printf("[main]: FIN: %d\n", ws_frame->fin);
+  printf("[main]: Length: %zu\n", ws_frame->payload_length);
+  printf("[main]: Buffer: |%s|\n", ws_frame->buffer);
 
   return 0;
 }
 
 void disconnectCallback(struct csocket_server_client *client, int socket_index) {
-  /* TODO: Add resuming mechanism; set clientAuthorization->disconnected to true */
+  /* TODO: Add resuming mechanism; set client_auth->disconnected to true */
   char socketStr[4];
   snprintf(socketStr, sizeof(socketStr), "%d", csocket_server_client_get_id(client));
 

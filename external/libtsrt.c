@@ -4,9 +4,9 @@
   License available on: licenses/performanc.license
 */
 
-#include "libtstr.h"
-
 #include <stdlib.h> // size_t, NULL
+
+#include "libtstr.h"
 
 void tstr_find_between(struct tstr_string_token *result, const char *str, const char *start, int start_index, const char *end, int len) {
   int i = 0;

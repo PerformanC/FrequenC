@@ -14,6 +14,8 @@ void frequenc_fast_copy(char *src, char *dest, size_t size);
 
 void frequenc_cleanup(void *pointer);
 
+void frequenc_free_nullable(void *pointer);
+
 void *frequenc_safe_malloc(size_t size);
 
 void *frequenc_safe_realloc(void *pointer, size_t size);

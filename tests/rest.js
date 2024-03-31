@@ -13,7 +13,7 @@ const SOURCE_MANAGERS = []
 const FILTERS = []
 const PLUGINS = []
 
-const ENCODED_TRACK = 'QAAAUwMABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkBAAphcnR3b3JrVXJsAQAEaXNyYwAKc291cmNlTmFtZQAAAAAHW80V'
+const ENCODED_TRACK = 'QAAAUwEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkBAAphcnR3b3JrVXJsAQAEaXNyYwAKc291cmNlTmFtZQAAAAAHW80V'
 const DECODED_TRACK = {
   encoded: ENCODED_TRACK,
   info: {
@@ -30,7 +30,7 @@ const DECODED_TRACK = {
   }
 }
 
-const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAPAMABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgAAAAAACnNvdXJjZU5hbWUAAAAAB1vNFQ==')
+const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAPAEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgAAAAAACnNvdXJjZU5hbWUAAAAAB1vNFQ==')
 const DECODED_TRACK_ENFORCED = {
   encoded: decodeURIComponent(ENCODED_TRACK_ENFORCED),
   info: {
@@ -50,13 +50,15 @@ const DECODED_TRACK_ENFORCED = {
 ;(async () => {
   Tester.init({
     baseUrl: `${SECURE ? 'https' : 'http'}://${HOST}:${PORT}`,
-    password: PASSWORD
+    password: PASSWORD,
+    giveCURLCommands: true
   })
 
   Tester.addTest({
     name: 'version',
     path: '/version',
     permittedMethods: [ 'GET' ],
+    disableErrorTests: false,
     tests: [{
       method: 'GET',
       expected: {
@@ -73,6 +75,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'info',
     path: '/v1/info',
     permittedMethods: [ 'GET' ],
+    disableErrorTests: false,
     tests: [{
       method: 'GET',
       expected: {
@@ -108,6 +111,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'decodedTrack',
     path: '/v1/decodetrack',
     permittedMethods: [ 'GET' ],
+    disableErrorTests: false,
     tests: [{
       query: `?encodedTrack=${ENCODED_TRACK}`,
       method: 'GET',
@@ -147,6 +151,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'decodedTracks',
     path: '/v1/decodetracks',
     permittedMethods: [ 'POST' ],
+    disableErrorTests: false,
     tests: [{
       method: 'POST',
       body: 'Invalid JSON',
@@ -190,6 +195,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'encodedTracks',
     path: '/v1/encodetracks',
     permittedMethods: [ 'POST' ],
+    disableErrorTests: false,
     tests: [{
       method: 'POST',
       body: 'Invalid JSON',
@@ -220,11 +226,7 @@ const DECODED_TRACK_ENFORCED = {
       method: 'POST',
       body: JSON.stringify([]),
       expected: {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify([])
+        statusCode: 400
       }
     }]
   })
@@ -233,6 +235,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'encodedTrack',
     path: '/v1/encodetrack',
     permittedMethods: [ 'POST' ],
+    disableErrorTests: false,
     tests: [{
       method: 'POST',
       body: 'Invalid JSON',
@@ -287,6 +290,7 @@ const DECODED_TRACK_ENFORCED = {
     name: 'loadTracks',
     path: '/v1/loadtracks',
     permittedMethods: [ 'GET' ],
+    disableErrorTests: false,
     tests: [{
       method: 'GET',
       query: `?identifier=ytsearch:This+shouldnt+be+searchable+on+YouTube+${Math.random() * (10 ** 10)}`,
@@ -325,8 +329,8 @@ const DECODED_TRACK_ENFORCED = {
           if (typeof obj.data[0] !== 'object' || obj.data[0] === null)
             return [ 'object', typeof obj.data[0] ]
           
-          if (obj.data[0].encoded !== 'QAAApAMADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA')
-            return [ 'QAAApAMADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA', obj.data[0].encoded ]
+          if (obj.data[0].encoded !== 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA')
+            return [ 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA', obj.data[0].encoded ]
 
           if (obj.data[0].info.title !== 'Me at the zoo')
             return [ 'Me at the zoo', obj.data[0].info.title ]

@@ -42,11 +42,50 @@ GET /version
 Authorization: <password>
 ```
 
+```txt
+1.0.0
+```
+
+## Fetching information about the node
+
+This endpoint allows clients to fetch information about the node, such as the version and available source managers.
+
+```http
+GET /v1/info
+Authorization: <password>
+```
+
 ```json
 {
-  "version": "1.0.0"
+  "version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "builtTime": -1,
+  "git": {
+    "branch": "master",
+    "commit": "XXXXXXXX",
+    "commitTime": 0
+  },
+  "sourceManagers": [
+    "youtube",
+    "soundcloud",
+    ...
+  ],
+  "filters": [
+    "timescale",
+    "volume",
+    ...
+  ]
 }
 ```
+
+> [!NOTE]
+> `builtTime` and `commitTime` are Unix timestamps.
+
+> [!WARNING]
+> `sourceManagers` and `filters` may change between versions.
 
 ## Decoding track
 
@@ -166,7 +205,6 @@ Authorization: <password>
 - `empty`: An empty result.
 - `error`: An error result.
 
-
 <details>
 
 <summary>Search</summary>
@@ -203,11 +241,7 @@ Authorization: <password>
 ```json
 {
   "loadType": "error",
-  "message": {
-    "message": "Error message",
-    "severity": "common",
-    "cause": "cause"
-  }
+  "data": "Error message"
 }
 ```
 
@@ -218,7 +252,7 @@ Authorization: <password>
 The websocket is the main way of communication between the client and FrequenC. It's used for sending events, and receiving commands.
 
 ```http
-GET /v1/ws
+GET /v1/websocket
 Authorization: <password>
 Upgrade: websocket
 Connection: Upgrade

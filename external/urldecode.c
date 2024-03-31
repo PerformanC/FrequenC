@@ -5,6 +5,26 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+size_t urldecoder_decode_length(const char *str) {
+  size_t len = 0;
+  char a, b;
+
+  while (*str) {
+    if ((*str == '%') && ((a = str[1]) && (b = str[2])) && (isxdigit(a) && isxdigit(b))) {
+      len++;
+      str += 3;
+    } else if (*str == '+') {
+      len++;
+      str++;
+    } else {
+      len++;
+      str++;
+    }
+  }
+
+  return len;
+}
+
 void urldecoder_decode(char *dst, const char *src) {
   char a, b;
 

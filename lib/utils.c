@@ -81,8 +81,13 @@ void frequenc_fast_copy(char *src, char *dest, size_t size) {
 void frequenc_cleanup(void *pointer) {
   if (pointer) {
     free(pointer);
+
     pointer = NULL;
   }
+}
+
+void frequenc_free_nullable(void *pointer) {
+  if (pointer) free(pointer);
 }
 
 void *frequenc_safe_malloc(size_t size) {

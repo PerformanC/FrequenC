@@ -40,7 +40,7 @@ void httpserver_stop_server(struct httpserver *server);
 
 void httpserver_disconnect_client(struct csocket_server_client *client);
 
-void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_header *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index));
+void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_frame *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index));
 
 void httpserver_set_socket_data(struct httpserver *server, int socket_index, void *data);
 

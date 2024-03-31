@@ -17,10 +17,10 @@ struct frequenc_track_info {
   uint64_t position;
 };
 
-int decodeTrack(struct frequenc_track_info *result, char *track);
+int frequenc_decode_track(struct frequenc_track_info *result, const char *track);
 
-void freeTrack(struct frequenc_track_info *track);
+void frequenc_free_track(struct frequenc_track_info *track);
 
-int encodeTrack(struct frequenc_track_info *track, char **result);
+int frequenc_encode_track(struct frequenc_track_info *track, char **result);
 
 #endif

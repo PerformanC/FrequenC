@@ -17,7 +17,7 @@
 
 #include "websocket.h"
 
-struct frequenc_ws_header frequenc_parse_ws_header(char *buffer) {
+struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
   size_t start_index = 2;
 
   uint8_t opcode = buffer[0] & 15;
@@ -26,25 +26,17 @@ struct frequenc_ws_header frequenc_parse_ws_header(char *buffer) {
   size_t payload_length = buffer[1] & 127;
 
   char mask[5];
-  if ((buffer[1] & 128) == 128) {
-    memcpy(mask, &buffer[2], 4);
-    mask[4] = '\0';
-  }
+  if ((buffer[1] & 128) == 128) frequenc_fast_copy(mask, &buffer[2], 4);
 
   if (payload_length == 126) {
     start_index += 2;
     payload_length = (buffer[start_index] << 8) | buffer[start_index + 1];
   } else if (payload_length == 127) {
-    uint8_t buf[8];
-    for (size_t i = 0; i < 8; ++i) {
-      buf[i] = buffer[start_index + i];
-    }
-
-    payload_length = ((uint64_t)buf[0] << 56) | ((uint64_t)buf[1] << 48) | ((uint64_t)buf[2] << 40) |
-                     ((uint64_t)buf[3] << 32) | ((uint64_t)buf[4] << 24) | ((uint64_t)buf[5] << 16) |
-                     ((uint64_t)buf[6] << 8) | buf[7];
-
     start_index += 8;
+
+    for (size_t i = 0; i < 8; i++) {
+      payload_length = (payload_length << 8) | buffer[i + 2];
+    }
   }
 
   if (is_masked) {
@@ -57,7 +49,7 @@ struct frequenc_ws_header frequenc_parse_ws_header(char *buffer) {
 
   buffer[start_index + payload_length] = '\0';
 
-  struct frequenc_ws_header frame_header;
+  struct frequenc_ws_frame frame_header;
   frame_header.opcode = opcode;
   frame_header.fin = fin;
   frame_header.buffer = &buffer[start_index];
@@ -105,7 +97,7 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   (void)response;
 }
 
-int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_header *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_header *message)) {
+int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_frame *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_frame *message)) {
   int header_key_char_size = sizeof(request->headers[0].key);
   int header_value_char_size = sizeof(request->headers[0].value);
 
@@ -135,8 +127,8 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   char key[17 + 1];
   snprintf(key, sizeof(key), "%ld", keyInt);
 
-  char acceptKey[29];
-  frequenc_gen_accept_key(key, acceptKey);
+  char accept_key[29];
+  frequenc_gen_accept_key(key, accept_key);
 
   snprintf(request->headers[request->headers_length + 3].key, header_key_char_size, "Sec-WebSocket-Key");
   snprintf(request->headers[request->headers_length + 3].value, header_value_char_size, "%s", key);
@@ -179,7 +171,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
     packet[len] = '\0';
 
-    struct frequenc_ws_header header = frequenc_parse_ws_header(packet);
+    struct frequenc_ws_frame header = frequenc_parse_ws_frame(packet);
 
     printf("[websocket]: Received frame with opcode %d\n", header.opcode);
 
@@ -196,13 +188,13 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
         memcpy(continue_buffer + continue_buffer_length - header.payload_length, header.buffer, header.payload_length);
 
         if (header.fin) {
-          struct frequenc_ws_header continueHeader;
-          continueHeader.opcode = 1;
-          continueHeader.fin = 1;
-          continueHeader.buffer = continue_buffer;
-          continueHeader.payload_length = continue_buffer_length;
+          struct frequenc_ws_frame continue_frame;
+          continue_frame.opcode = 1;
+          continue_frame.fin = 1;
+          continue_frame.buffer = continue_buffer;
+          continue_frame.payload_length = continue_buffer_length;
 
-          on_message(response, &continueHeader);
+          on_message(response, &continue_frame);
 
           frequenc_cleanup(continue_buffer);
           continue_buffer_length = 0;
@@ -258,6 +250,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   exit: {
     if (continue_buffer != NULL) {
       frequenc_cleanup(continue_buffer);
+
       continue_buffer_length = 0;
     }
 
@@ -298,10 +291,18 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
   buffer[1] = payload_length;
 
   if (payload_length == 126) {
-    memcpy(buffer + 2, &message_length, sizeof(uint16_t));
+    buffer[2] = message_length >> 8;
+    buffer[3] = message_length & 0xFF;
   } else if (payload_length == 127) {
     buffer[2] = buffer[3] = 0;
-    memcpy(buffer + 4, &message_length, sizeof(uint64_t));
+    buffer[4] = message_length >> 56;
+    buffer[5] = message_length >> 48;
+    buffer[6] = message_length >> 40;
+    buffer[7] = message_length >> 32;
+    buffer[8] = message_length >> 24;
+    buffer[9] = message_length >> 16;
+    buffer[10] = message_length >> 8;
+    buffer[11] = message_length & 0xFF;
   }
 
   memcpy(buffer + payload_start_index, message, message_length);
