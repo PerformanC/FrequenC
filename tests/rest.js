@@ -5,7 +5,7 @@ const PORT = 8888
 const PASSWORD = 'youshallnotpass'
 const SECURE = false
 
-const VERSION = '2.0.0'
+const VERSION = '1.0.0'
 const BRANCH = 'main'
 const COMMIT = 'unknown'
 const COMMIT_TIME = -1
@@ -85,11 +85,9 @@ const DECODED_TRACK_ENFORCED = {
         },
         body: JSON.stringify({
           version: {
-            semver: VERSION,
             major: Number(VERSION.split('.')[0]),
             minor: Number(VERSION.split('.')[1]),
-            patch: Number(VERSION.split('.')[2]),
-            preRelease: null
+            patch: Number(VERSION.split('.')[2])
           },
           builtTime: -1,
           git: {
@@ -97,10 +95,8 @@ const DECODED_TRACK_ENFORCED = {
             commit: COMMIT,
             commitTime: COMMIT_TIME
           },
-          isFrequenC: true,
           sourceManagers: SOURCE_MANAGERS,
-          filters: FILTERS,
-          plugins: PLUGINS
+          filters: FILTERS
         }),
         type: 'json'
       }
