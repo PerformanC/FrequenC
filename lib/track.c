@@ -13,38 +13,38 @@ struct _decoder_class {
   unsigned char *buffer;
 };
 
-int _change_bytes(struct _decoder_class *decder_class, int bytes) {
-  decder_class->position += bytes;
-  return decder_class->position - bytes;
+int _change_bytes(struct _decoder_class *decoder_class, int bytes) {
+  decoder_class->position += bytes;
+  return decoder_class->position - bytes;
 }
 
-int8_t _read_byte(struct _decoder_class *decder_class) {
-  return (int8_t)decder_class->buffer[_change_bytes(decder_class, 1)];
+int8_t _read_byte(struct _decoder_class *decoder_class) {
+  return (int8_t)decoder_class->buffer[_change_bytes(decoder_class, 1)];
 }
 
-uint16_t _read_unsigned_short(struct _decoder_class *decder_class) {
-  return decder_class->buffer[_change_bytes(decder_class, 2)] << 8 | decder_class->buffer[decder_class->position - 1];
+uint16_t _read_unsigned_short(struct _decoder_class *decoder_class) {
+  return decoder_class->buffer[_change_bytes(decoder_class, 2)] << 8 | decoder_class->buffer[decoder_class->position - 1];
 }
 
-uint32_t _read_int(struct _decoder_class *decder_class) {
-  return decder_class->buffer[_change_bytes(decder_class, 4)] << 24 | decder_class->buffer[decder_class->position - 3] << 16 |
-         decder_class->buffer[decder_class->position - 2] << 8 | decder_class->buffer[decder_class->position - 1];
+uint32_t _read_int(struct _decoder_class *decoder_class) {
+  return decoder_class->buffer[_change_bytes(decoder_class, 4)] << 24 | decoder_class->buffer[decoder_class->position - 3] << 16 |
+         decoder_class->buffer[decoder_class->position - 2] << 8 | decoder_class->buffer[decoder_class->position - 1];
 }
 
-uint64_t _read_long(struct _decoder_class *decder_class) {
-  uint32_t lsb = _read_int(decder_class);
-  uint32_t msb = _read_int(decder_class);
+uint64_t _read_long(struct _decoder_class *decoder_class) {
+  uint32_t lsb = _read_int(decoder_class);
+  uint32_t msb = _read_int(decoder_class);
 
   return msb + lsb;
 }
 
-char *_read_utf(struct _decoder_class *decder_class) {
-  uint16_t len = _read_unsigned_short(decder_class);
-  size_t start = _change_bytes(decder_class, len);
+char *_read_utf(struct _decoder_class *decoder_class) {
+  uint16_t len = _read_unsigned_short(decoder_class);
+  size_t start = _change_bytes(decoder_class, len);
 
   char *result = frequenc_safe_malloc((len + 1) * sizeof(char));
 
-  memcpy(result, decder_class->buffer + start, len);
+  memcpy(result, decoder_class->buffer + start, len);
   result[len] = '\0';
 
   return result;
