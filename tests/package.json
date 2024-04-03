@@ -9,5 +9,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "Custom License"
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "@performanc/pwsl-mini": "github:PerformanC/internals#PWSL-mini"
+  }
 }

@@ -21,6 +21,12 @@ The FrequenC API is the main way of communication between the client and the ser
 > [!WARNING]
 > All endpoints, except `/version`, are prefixed with `/v1` and may change between versions.
 
+> [!WARNING]
+> We reserve the right of breaking changes without major version bumps if they are said to be necessary in this documentation.
+
+> [!WARNING]
+> This is a beta version of the API.
+
 ## Information about server
 
 The HTTP parser of FrequenC is implemented by The PeformanC Organization, and is used by FrequenC to parse HTTP requests. Through it, we added limitations to the HTTP server, and more strictness to the HTTP parser.
@@ -257,6 +263,7 @@ Authorization: <password>
 Upgrade: websocket
 Connection: Upgrade
 User-Id: <user-id>
+Client-Info: NAME/VERSION (BOT NAME)
 ```
 
 > [!WARNING]

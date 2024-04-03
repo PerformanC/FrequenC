@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "utils.h"
+
 #include "libtstr.h"
+
+#include "utils.h"
 
 #include "httpparser.h"
 

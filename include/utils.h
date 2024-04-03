@@ -6,6 +6,16 @@
 #include "jsmn-find.h"
 #include "track.h"
 
+#define LOG_ERROR(...) fprintf(stderr, "[ERROR]: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");
+#define LOG_INFO(...) fprintf(stdout, "[INFO]: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n");
+#define LOG_DEBUG(...) fprintf(stdout, "[DEBUG]: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n");
+
+struct frequenc_client_info {
+  char *name;
+  char *version;
+  char *bot_name;
+};
+
 unsigned int frequenc_safe_seeding(void);
 
 char *frequenc_generate_session_id(char *result);
@@ -29,5 +39,9 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
 void frequenc_free_track_info(struct frequenc_track_info *track_info);
 
 void frequenc_stringify_int(int length, char *result, size_t result_size);
+
+int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *result);
+
+void frequenc_free_client_info(struct frequenc_client_info *client);
 
 #endif

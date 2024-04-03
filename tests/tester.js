@@ -207,6 +207,8 @@ Array.prototype.nForEach = async function(callback) {
 async function run() {
   console.log(`[The Tester]: Running ${testInfo.tests.length} tests...`)
 
+  let now = Date.now()
+
   const tests = testInfo.tests
 
   let passed = 0
@@ -423,12 +425,14 @@ async function run() {
 
   console.log(`[The Tester]: ${passed} error tests passed, ${failed} error tests failed. ${passed / testsLength * 100}% passed. ${failed / testsLength * 100}% failed.`)
 
-  console.log(`[The Tester]: All tests finished.`)
+  console.log(`[The Tester]: All tests finished in ${Date.now() - now}ms.`)
 
   if (testInfo.options.curlCommands.enabled) {
     fs.writeSync(testInfo.options.curlCommands.fd, textResult.join('\n'))
 
     fs.closeSync(testInfo.options.curlCommands.fd)
+
+    console.log(`[The Tester]: cURL commands written to test-report.txt`)
   }
 }
 

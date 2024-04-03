@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+
 #include "httpparser.h"
 #include "websocket.h"
 #include "cthreads.h"
+#include "csocket-server.h"
+
 #include "utils.h"
 #include "types.h"
-#include "csocket-server.h"
 
 #include "httpserver.h"
 
@@ -53,7 +55,7 @@ void httpserver_stop_server(struct httpserver *server) {
 }
 
 void httpserver_disconnect_client(struct csocket_server_client *client) {
-  csocketCloseClient(client);
+  csocket_close_client(client);
 }
 
 int _httpserver_select_position(struct httpserver *server) {
@@ -99,11 +101,11 @@ void _httpserver_add_available_socket(struct httpserver *server, int socket_inde
 }
 
 void *listen_messages(void *args) {
-  struct _httpserver_connection_data *connectionData = (struct _httpserver_connection_data *)args;
+  struct _httpserver_connection_data *connection_data = (struct _httpserver_connection_data *)args;
 
-  struct csocket_server_client client = connectionData->client;
-  int socket_index = connectionData->socket_index;
-  struct httpserver *server = connectionData->server;
+  struct csocket_server_client client = connection_data->client;
+  int socket_index = connection_data->socket_index;
+  struct httpserver *server = connection_data->server;
 
   char payload[MAX_MESSAGE_LENGTH];
   int payload_size = 0;
@@ -116,7 +118,7 @@ void *listen_messages(void *args) {
     if (server->sockets[socket_index].upgraded) {
       struct frequenc_ws_frame ws_frame = frequenc_parse_ws_frame(payload);
 
-      if (connectionData->websocket_callback(&client, &ws_frame)) goto disconnect;
+      if (connection_data->websocket_callback(&client, &ws_frame)) goto disconnect;
 
       continue;
     }
@@ -130,7 +132,7 @@ void *listen_messages(void *args) {
       goto invalid_request;
     }
 
-    connectionData->callback(&client, socket_index, &request);
+    connection_data->callback(&client, socket_index, &request);
 
     if (!server->sockets[socket_index].upgraded) break;
   }
@@ -139,7 +141,7 @@ void *listen_messages(void *args) {
     perror("[httpserver]: recv failed");
 
   disconnect: {
-    connectionData->disconnect_callback(&client, socket_index);
+    connection_data->disconnect_callback(&client, socket_index);
 
     httpserver_disconnect_client(&client);
 
@@ -147,7 +149,7 @@ void *listen_messages(void *args) {
     server->sockets[socket_index].upgraded = false;
 
     httpparser_free_request(&request);
-    free(connectionData);
+    free(connection_data);
     cthreads_thread_detach(cthreads_thread_self());
 
     server->sockets_length--;
@@ -182,13 +184,13 @@ void httpserver_handle_request(struct httpserver *server, void (*callback)(struc
 
     printf("[httpserver]: Connection accepted.\n - Socket: %d\n - Socket index: %d\n - IP: %s\n - Port: %d\n", socket, socket_index, csocket_server_client_get_ip(&client), csocket_server_client_get_port(&client));
 
-    struct httpserver_client httpClient = {
+    struct httpserver_client http_client = {
       .socket = socket,
       .upgraded = false,
       .data = NULL
     };
 
-    server->sockets[socket_index] = httpClient;
+    server->sockets[socket_index] = http_client;
 
     struct _httpserver_connection_data *args = frequenc_safe_malloc(sizeof(struct _httpserver_connection_data));
 

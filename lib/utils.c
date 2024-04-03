@@ -6,13 +6,17 @@
 #elif ALLOW_UNSECURE_RANDOM && !_WIN32
   #include <time.h>
 #endif
+
 #define JSMN_HEADER
 #define JSMN_STRICT /* Set strict mode for jsmn (JSON tokenizer) */
 #include "jsmn.h"
 #include "jsmn-find.h"
+#include "libtstr.h"
 
 #include "track.h"
 #include "types.h"
+
+#include "utils.h"
 
 unsigned int frequenc_safe_seeding(void) {
   unsigned int seed = 0;
@@ -253,4 +257,43 @@ void frequenc_free_track_info(struct frequenc_track_info *track_info) {
 
 void frequenc_stringify_int(int length, char *result, size_t result_size) {
   snprintf(result, result_size, "%d", length);
+}
+
+int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *result) {
+  struct tstr_string_token separation_result;
+  tstr_find_between(&separation_result, client_info, " ", 0, NULL, 0);
+
+  if (separation_result.start == 0) return -1;
+
+  struct tstr_string_token name_result;
+  tstr_find_between(&name_result, client_info, NULL, 0, "/", separation_result.start);
+
+  if (name_result.end == 0) return -1;
+
+  struct tstr_string_token version_result;
+  tstr_find_between(&version_result, client_info, "/", name_result.end, " ", 0);
+
+  if (version_result.start == 0 || version_result.end == 0) return -1;
+
+  struct tstr_string_token bot_name_result;
+  tstr_find_between(&bot_name_result, client_info, "(", separation_result.end, ")", 0);
+
+  if (bot_name_result.start == 0 || bot_name_result.end == 0) return -1;
+
+  result->name = frequenc_safe_malloc(name_result.end - name_result.start + 1);
+  frequenc_fast_copy(client_info + name_result.start, result->name, name_result.end - name_result.start);
+
+  result->version = frequenc_safe_malloc(version_result.end - version_result.start + 1);
+  frequenc_fast_copy(client_info + version_result.start, result->version, version_result.end - version_result.start);
+
+  result->bot_name = frequenc_safe_malloc(bot_name_result.end - bot_name_result.start + 1);
+  frequenc_fast_copy(client_info + bot_name_result.start, result->bot_name, bot_name_result.end - bot_name_result.start);
+
+  return 0;
+}
+
+void frequenc_free_client_info(struct frequenc_client_info *client) {
+  frequenc_cleanup(client->name);
+  frequenc_cleanup(client->version);
+  frequenc_cleanup(client->bot_name);
 }

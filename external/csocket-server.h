@@ -54,7 +54,7 @@ int csocket_server_accept(struct csocket_server server, struct csocket_server_cl
 
 int csocket_server_send(struct csocket_server_client *client, char *data, size_t length);
 
-int csocketCloseClient(struct csocket_server_client *client);
+int csocket_close_client(struct csocket_server_client *client);
 
 int csocket_server_recv(struct csocket_server_client *client, char *buffer, size_t length);
 

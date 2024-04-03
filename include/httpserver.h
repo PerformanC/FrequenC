@@ -1,9 +1,10 @@
 #ifndef HTTPSERVER_H
 #define HTTPSERVER_H
 
+#include "csocket-server.h"
+
 #include "websocket.h"
 #include "httpparser.h"
-#include "csocket-server.h"
 #include "types.h"
 
 struct httpserver {

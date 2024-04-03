@@ -38,7 +38,7 @@
 #endif
 
 struct client_authorization {
-  char *userId;
+  char *user_id;
   struct csocket_server_client *client;
   bool disconnected;
 };
@@ -52,8 +52,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
   if (authorization == NULL || strcmp(authorization->value, AUTHORIZATION) != 0) {
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 401);
@@ -68,35 +68,58 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
   if (strcmp(request->path, "/v1/websocket") == 0) {
     struct httpparser_header *header = httpparser_get_header(request, "Upgrade");
-    if (header == NULL || strcmp(header->value, "websocket") != 0) goto bad_request;
+    if (header == NULL || strcmp(header->value, "websocket") != 0) {
+      LOG_INFO("No Upgrade header found.");
 
-    struct httpparser_header *secWebSocketKey = httpparser_get_header(request, "Sec-WebSocket-Key");
-    if (secWebSocketKey == NULL) goto bad_request;
+      goto bad_request;
+    }
 
-    struct httpparser_header *userId = httpparser_get_header(request, "User-Id");
-    if (userId == NULL) goto bad_request;
+    struct httpparser_header *sec_websocket_key = httpparser_get_header(request, "Sec-WebSocket-Key");
+    if (sec_websocket_key == NULL) {
+      LOG_INFO("No Sec-WebSocket-Key header found.");
 
-    struct httpparser_header *UserAgent = httpparser_get_header(request, "Client-Name");
-    if (UserAgent == NULL) goto bad_request;
+      goto bad_request;
+    }
 
-    printf("[main]: %s client connected to FrequenC.\n", UserAgent->value);
+    struct httpparser_header *user_id = httpparser_get_header(request, "User-Id");
+    if (user_id == NULL) {
+      LOG_INFO("No User-Id header found.");
 
-    struct httpparser_header *sessionId = httpparser_get_header(request, "Session-Id");
+      goto bad_request;
+    }
 
-    /* todo: add optional Bot-Name header (?) */
+    struct httpparser_header *client_info = httpparser_get_header(request, "Client-Info");
+    if (client_info == NULL) {
+      LOG_INFO("No Client-Info header found.");
+
+      goto bad_request;
+    }
+
+    struct frequenc_client_info parsed_client_info;
+    if (frequenc_parse_client_info(client_info->value, &parsed_client_info) == -1) {
+      LOG_INFO("Client-Info doesn't conform to the required format.");
+
+      goto bad_request;
+    }
+
+    printf("[main]: WebSocket connection accepted.\n - Name: %s\n - Version: %s\n - Bot name: %s\n", parsed_client_info.name, parsed_client_info.version, parsed_client_info.bot_name);
+
+    frequenc_free_client_info(&parsed_client_info);
+
+    struct httpparser_header *session_id = httpparser_get_header(request, "Session-Id");
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[5];
-    httpserver_init_response(&response, headerBuffer, 5);
+    struct httpserver_header headers_buffer[5];
+    httpserver_init_response(&response, headers_buffer, 5);
 
-    char acceptKey[32 + 1];
-    frequenc_gen_accept_key(secWebSocketKey->value, acceptKey);
+    char accept_key[32 + 1];
+    frequenc_gen_accept_key(sec_websocket_key->value, accept_key);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 101);
     httpserver_set_response_header(&response, "Upgrade", "websocket");
     httpserver_set_response_header(&response, "Connection", "Upgrade");
-    httpserver_set_response_header(&response, "Sec-WebSocket-Accept", acceptKey);
+    httpserver_set_response_header(&response, "Sec-WebSocket-Accept", accept_key);
     httpserver_set_response_header(&response, "Sec-WebSocket-Version", "13");
 
     httpserver_send_response(&response);
@@ -104,12 +127,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct tablec_bucket *selectedClient;
 
     cthreads_mutex_lock(&mutex);
-    if (sessionId != NULL && (selectedClient = tablec_get(&clients, sessionId->value)) != NULL && ((struct client_authorization *)selectedClient->value)->disconnected) {
+    if (session_id != NULL && (selectedClient = tablec_get(&clients, session_id->value)) != NULL && ((struct client_authorization *)selectedClient->value)->disconnected) {
       cthreads_mutex_unlock(&mutex);
 
       struct client_authorization *client_auth = selectedClient->value;
 
-      client_auth->userId = userId->value;
+      client_auth->user_id = user_id->value;
       client_auth->client = client;
 
       char payload[1024];
@@ -117,8 +140,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         "{"
           "\"op\":\"ready\","
           "\"resumed\":true,"
-          "\"sessionId\":\"%s\""
-        "}", sessionId->value
+          "\"session_id\":\"%s\""
+        "}", session_id->value
       );
 
       struct frequenc_ws_message wsResponse;
@@ -130,7 +153,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
       frequenc_send_ws_response(&wsResponse);
 
-      httpserver_set_socket_data(&server, socket_index, sessionId->value);
+      httpserver_set_socket_data(&server, socket_index, session_id->value);
 
       httpserver_upgrade_socket(&server, socket_index);
 
@@ -152,7 +175,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         goto generateSession;
       }
     
-    client_auth->userId = userId->value;
+    client_auth->user_id = user_id->value;
     client_auth->client = client;
     client_auth->disconnected = false;
 
@@ -161,7 +184,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       "{"
         "\"op\":\"ready\","
         "\"resumed\":false,"
-        "\"sessionId\":\"%s\""
+        "\"session_id\":\"%s\""
       "}", sessionIdGen
     );
 
@@ -207,8 +230,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     if (strcmp(request->method, "GET") != 0) goto method_not_allowed;
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -246,8 +269,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     );
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -334,8 +357,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -380,8 +403,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(frequenc_track_info_to_json(&decoded_track, decoded_query, payload, sizeof(payload)), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -487,8 +510,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -543,8 +566,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(frequenc_encode_track(&decoded_track, &encoded_track), payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -588,8 +611,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     frequenc_stringify_int(result.length, payloadLength, sizeof(payloadLength));
 
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
@@ -605,8 +628,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
   else {
     struct httpserver_response notFoundResponse;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&notFoundResponse, headerBuffer, 2);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&notFoundResponse, headers_buffer, 2);
 
     httpserver_set_response_socket(&notFoundResponse, client);
     httpserver_set_response_status(&notFoundResponse, 404);
@@ -618,8 +641,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
   bad_request: {
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 400);
@@ -631,8 +654,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
   method_not_allowed: {
     struct httpserver_response response;
-    struct httpserver_header headerBuffer[3];
-    httpserver_init_response(&response, headerBuffer, 3);
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
 
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 405);
@@ -643,7 +666,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   }
 }
 
-int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_frame *ws_frame) {
+int ws_callback(struct csocket_server_client *client, struct frequenc_ws_frame *ws_frame) {
   printf("[main]: WS message: %d\n", csocket_server_client_get_id(client));
 
   if (ws_frame->opcode == 8) {
@@ -661,20 +684,20 @@ int websocketCallback(struct csocket_server_client *client, struct frequenc_ws_f
   return 0;
 }
 
-void disconnectCallback(struct csocket_server_client *client, int socket_index) {
+void disconnect_callback(struct csocket_server_client *client, int socket_index) {
   /* TODO: Add resuming mechanism; set client_auth->disconnected to true */
   char socketStr[4];
   snprintf(socketStr, sizeof(socketStr), "%d", csocket_server_client_get_id(client));
 
-  char *sessionId = httpserver_get_socket_data(&server, socket_index);
+  char *session_id = httpserver_get_socket_data(&server, socket_index);
 
-  if (sessionId == NULL) return;
+  if (session_id == NULL) return;
 
   cthreads_mutex_lock(&mutex);
-  struct tablec_bucket *bucket2 = tablec_get(&clients, sessionId);
+  struct tablec_bucket *bucket2 = tablec_get(&clients, session_id);
 
   if (bucket2->value == NULL) {
-    printf("[main]: Client disconnected not properly. Report it.\n - Reason: Can't find saved sessionId on hashtable.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(client), socket_index, cthreads_thread_id(cthreads_thread_self()));
+    printf("[main]: Client disconnected not properly. Report it.\n - Reason: Can't find saved session_id on hashtable.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(client), socket_index, cthreads_thread_id(cthreads_thread_self()));
 
     exit(1);
 
@@ -685,12 +708,12 @@ void disconnectCallback(struct csocket_server_client *client, int socket_index) 
   cthreads_mutex_unlock(&mutex);
 
   free(bucket2->value);
-  free(sessionId);
+  free(session_id);
 
   return;
 }
 
-void handleSigInt(int sig) {
+void handle_sig_int(int sig) {
   (void) sig;
 
   printf("\n[main]: Stopping server. Checking the hashtable...\n");
@@ -702,10 +725,12 @@ void handleSigInt(int sig) {
     if (bucket.key == NULL) continue;
 
     printf("[main]: Found data in the hashtable.\n - Key: %s\n - Value: %p\n", bucket.key, bucket.value);
+
+    detected = true;
   }
 
   if (!detected) printf("[main]: No data found in the hashtable.\n");
-  else printf("[main]: Data found in the hashtable. If there weren't clients connected, please, contribute to the project\n");
+  else printf("[main]: Data found in the hashtable. If there weren't clients connected, please, contribute to the project and report that bug.\n");
 
   httpserver_stop_server(&server);
   free(clients.buckets);
@@ -718,13 +743,13 @@ int main(void) {
     printf("[main]: Warning! Using unsecure random seed. If your system supports /dev/urandom, disable ALLOW_UNSECURE_RANDOM and compile again.\n");
   #endif
 
-  signal(SIGINT, handleSigInt);
-  struct tablec_bucket *buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * 100);
-  tablec_init(&clients, buckets, 100);
+  signal(SIGINT, handle_sig_int);
+  struct tablec_bucket *buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * 2);
+  tablec_init(&clients, buckets, 2);
 
   cthreads_mutex_init(&mutex, NULL);
 
   httpserver_start_server(&server);
 
-  httpserver_handle_request(&server, callback, websocketCallback, disconnectCallback);
+  httpserver_handle_request(&server, callback, ws_callback, disconnect_callback);
 }

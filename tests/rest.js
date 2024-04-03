@@ -325,8 +325,8 @@ const DECODED_TRACK_ENFORCED = {
           if (typeof obj.data[0] !== 'object' || obj.data[0] === null)
             return [ 'object', typeof obj.data[0] ]
           
-          if (obj.data[0].encoded !== 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA')
-            return [ 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAASjgAC2pOUVhBQzlJVlJ3AAEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA', obj.data[0].encoded ]
+          if (obj.data[0].encoded !== 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAAAAAAC2pOUVhBQzlJVlJ3AQEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA')
+            return [ 'QAAApAEADU1lIGF0IHRoZSB6b28ABWphd2VkAAAAAAAAAAAAC2pOUVhBQzlJVlJ3AQEAK2h0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9ak5RWEFDOUlWUncBADRodHRwczovL2kueXRpbWcuY29tL3ZpL2pOUVhBQzlJVlJ3L21heHJlc2RlZmF1bHQuanBnAAAHWW91VHViZQAAAAAAAAAA', obj.data[0].encoded ]
 
           if (obj.data[0].info.title !== 'Me at the zoo')
             return [ 'Me at the zoo', obj.data[0].info.title ]

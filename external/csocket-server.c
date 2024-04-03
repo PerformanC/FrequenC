@@ -163,7 +163,7 @@ int csocket_server_send(struct csocket_server_client *client, char *data, size_t
   return 0;
 }
 
-int csocketCloseClient(struct csocket_server_client *client) {
+int csocket_close_client(struct csocket_server_client *client) {
   #ifdef _WIN32
     // Not supported yet
   #else
