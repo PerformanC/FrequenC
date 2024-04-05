@@ -69,35 +69,35 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   if (strcmp(request->path, "/v1/websocket") == 0) {
     struct httpparser_header *header = httpparser_get_header(request, "Upgrade");
     if (header == NULL || strcmp(header->value, "websocket") != 0) {
-      LOG_INFO("No Upgrade header found.");
+      printf("[main]: No Upgrade header found.\n");
 
       goto bad_request;
     }
 
     struct httpparser_header *sec_websocket_key = httpparser_get_header(request, "Sec-WebSocket-Key");
     if (sec_websocket_key == NULL) {
-      LOG_INFO("No Sec-WebSocket-Key header found.");
+      printf("[main]: No Sec-WebSocket-Key header found.\n");
 
       goto bad_request;
     }
 
     struct httpparser_header *user_id = httpparser_get_header(request, "User-Id");
     if (user_id == NULL) {
-      LOG_INFO("No User-Id header found.");
+      printf("[main]: No User-Id header found.\n");
 
       goto bad_request;
     }
 
     struct httpparser_header *client_info = httpparser_get_header(request, "Client-Info");
     if (client_info == NULL) {
-      LOG_INFO("No Client-Info header found.");
+      printf("[main]: No Client-Info header found.\n");
 
       goto bad_request;
     }
 
     struct frequenc_client_info parsed_client_info;
     if (frequenc_parse_client_info(client_info->value, &parsed_client_info) == -1) {
-      LOG_INFO("Client-Info doesn't conform to the required format.");
+      printf("[main]: Failed to parse Client-Info header.\n");
 
       goto bad_request;
     }
@@ -450,15 +450,22 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmnf_init(&loader);
     r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
     if (r <= 0) {
-      free(tokens);
       free(pairs);
+      free(tokens);
       
       printf("[main]: Failed to load JSON: %d\n", r);
 
       goto bad_request;
     }
 
-    if (pairs->size == 0) goto bad_request;
+    if (pairs->size == 0) {
+      free(pairs);
+      free(tokens);
+
+      printf("[main]: No tracks found in the body.\n");
+
+      goto bad_request;
+    }
 
     char *arrayResponse = frequenc_safe_malloc((2048 * pairs->size) * sizeof(char));
     size_t arrayResponseLength = 1;
@@ -473,6 +480,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (frequenc_json_to_track_info(&decoded_track, pairs, request->body, path, 1, sizeof(path) / sizeof(*path)) == -1) {
         frequenc_free_track_info(&decoded_track);
         free(arrayResponse);
+        free(pairs);
+        free(tokens);
 
         goto bad_request;
       }

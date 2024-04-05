@@ -6,10 +6,6 @@
 #include "jsmn-find.h"
 #include "track.h"
 
-#define LOG_ERROR(...) fprintf(stderr, "[ERROR]: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");
-#define LOG_INFO(...) fprintf(stdout, "[INFO]: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n");
-#define LOG_DEBUG(...) fprintf(stdout, "[DEBUG]: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n");
-
 struct frequenc_client_info {
   char *name;
   char *version;
