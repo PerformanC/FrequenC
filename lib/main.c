@@ -37,10 +37,22 @@
 #define AUTHORIZATION "youshallnotpass"
 #endif
 
+struct client_guild_vc_info {
+  char *session_id;
+  char *token;
+  char *endpoint;
+};
+
+struct client_guild_information {
+  unsigned long guild_id;
+  struct client_guild_vc_info *vc_info;
+};
+
 struct client_authorization {
   char *user_id;
   struct csocket_server_client *client;
   bool disconnected;
+  struct tablec_ht guilds;
 };
 
 struct tablec_ht clients;
@@ -136,7 +148,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       client_auth->client = client;
 
       char payload[1024];
-      int payloadLength = snprintf(payload, sizeof(payload),
+      int payload_length = snprintf(payload, sizeof(payload),
         "{"
           "\"op\":\"ready\","
           "\"resumed\":true,"
@@ -144,14 +156,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         "}", session_id->value
       );
 
-      struct frequenc_ws_message wsResponse;
-      wsResponse.opcode = 1;
-      wsResponse.fin = 1;
-      wsResponse.payload_length = payloadLength;
-      wsResponse.buffer = payload;
-      wsResponse.client = client;
+      struct frequenc_ws_message ws_response;
+      ws_response.opcode = 1;
+      ws_response.fin = 1;
+      ws_response.payload_length = payload_length;
+      ws_response.buffer = payload;
+      ws_response.client = client;
 
-      frequenc_send_ws_response(&wsResponse);
+      frequenc_send_ws_response(&ws_response);
 
       httpserver_set_socket_data(&server, socket_index, session_id->value);
 
@@ -164,12 +176,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     struct client_authorization *client_auth = frequenc_safe_malloc(sizeof(struct client_authorization));
 
-    char *sessionIdGen = frequenc_safe_malloc((16 + 1) * sizeof(char));
+    char *gen_session_id = frequenc_safe_malloc((16 + 1) * sizeof(char));
 
     generateSession:
-      frequenc_generate_session_id(sessionIdGen);
+      frequenc_generate_session_id(gen_session_id);
 
-      if (tablec_get(&clients, sessionIdGen) != NULL) {
+      if (tablec_get(&clients, gen_session_id) != NULL) {
         printf("[main]: Session ID collision detected. Generating another one.\n");
 
         goto generateSession;
@@ -178,50 +190,53 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     client_auth->user_id = user_id->value;
     client_auth->client = client;
     client_auth->disconnected = false;
+    
+    struct tablec_bucket *guilds = frequenc_safe_malloc(sizeof(struct tablec_bucket));
+    tablec_init(&client_auth->guilds, guilds, 1);
 
     char payload[1024];
-    int payloadLength = snprintf(payload, sizeof(payload),
+    int payload_length = snprintf(payload, sizeof(payload),
       "{"
         "\"op\":\"ready\","
         "\"resumed\":false,"
         "\"session_id\":\"%s\""
-      "}", sessionIdGen
+      "}", gen_session_id
     );
 
-    struct frequenc_ws_message wsResponse;
-    wsResponse.opcode = 1;
-    wsResponse.fin = 1;
-    wsResponse.payload_length = payloadLength;
-    wsResponse.buffer = payload;
-    wsResponse.client = client;
+    struct frequenc_ws_message ws_response;
+    ws_response.opcode = 1;
+    ws_response.fin = 1;
+    ws_response.payload_length = payload_length;
+    ws_response.buffer = payload;
+    ws_response.client = client;
 
-    frequenc_send_ws_response(&wsResponse);
+    frequenc_send_ws_response(&ws_response);
 
     cthreads_mutex_lock(&mutex);
-    if (tablec_set(&clients, sessionIdGen, client_auth) == -1) {
+    if (tablec_set(&clients, gen_session_id, client_auth) == -1) {
       cthreads_mutex_unlock(&mutex);
       printf("[main]: Hashtable is full, resizing.\n");
 
-      struct tablec_ht oldClients = clients;
-      size_t newCapacity = clients.capacity * 2;
-      struct tablec_bucket *newBuckets = frequenc_safe_malloc(newCapacity * sizeof(struct tablec_bucket));
+      struct tablec_ht old_clients = clients;
+      size_t new_capacity = clients.capacity * 2;
+      struct tablec_bucket *new_buckets = frequenc_safe_malloc(new_capacity * sizeof(struct tablec_bucket));
 
       cthreads_mutex_lock(&mutex);
-      if (tablec_resize(&clients, newBuckets, newCapacity) == -1) {
+      if (tablec_resize(&clients, new_buckets, new_capacity) == -1) {
         printf("[main]: Hashtable resizing failed. Exiting.\n");
 
         exit(1);
       }
       cthreads_mutex_unlock(&mutex);
 
-      free(oldClients.buckets);
+      free(old_clients.buckets);
 
       cthreads_mutex_lock(&mutex);
-      tablec_set(&clients, sessionIdGen, client_auth);
+      tablec_set(&clients, gen_session_id, client_auth);
     }
     cthreads_mutex_unlock(&mutex);
 
-    httpserver_set_socket_data(&server, socket_index, sessionIdGen);
+    httpserver_set_socket_data(&server, socket_index, gen_session_id);
 
     httpserver_upgrade_socket(&server, socket_index);
   }
@@ -246,7 +261,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     if (strcmp(request->method, "GET") != 0) goto method_not_allowed;
 
     char payload[1024];
-    char payloadLength[4];
+    char payload_length[4];
     frequenc_stringify_int(snprintf(payload, sizeof(payload),
       "{"
         "\"version\":{"
@@ -264,8 +279,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         "\"filters\":%s"
       "}",
       VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GIT_BRANCH, GIT_COMMIT, GIT_COMMIT_TIME, SUPPORTED_SOURCES, SUPPORTED_FILTERS),
-      payloadLength,
-      sizeof(payloadLength)
+      payload_length,
+      sizeof(payload_length)
     );
 
     struct httpserver_response response;
@@ -275,7 +290,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, payload);
 
     httpserver_send_response(&response);
@@ -290,14 +305,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *contentLength = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
 
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
     unsigned num_tokens = 0;
 
     jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, atoi(contentLength->value), &tokens, &num_tokens);
+    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
     if (r <= 0) {
       free(tokens);
 
@@ -353,8 +368,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     arrayResponseLength++;
     arrayResponse[arrayResponseLength] = '\0';
 
-    char payloadLength[8 + 1];
-    frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
+    char payload_length[8 + 1];
+    frequenc_stringify_int(arrayResponseLength, payload_length, sizeof(payload_length));
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
@@ -363,7 +378,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, arrayResponse);
     
     httpserver_send_response(&response);
@@ -399,8 +414,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     char payload[2048];
-    char payloadLength[3 + 1];
-    frequenc_stringify_int(frequenc_track_info_to_json(&decoded_track, decoded_query, payload, sizeof(payload)), payloadLength, sizeof(payloadLength));
+    char payload_length[3 + 1];
+    frequenc_stringify_int(frequenc_track_info_to_json(&decoded_track, decoded_query, payload, sizeof(payload)), payload_length, sizeof(payload_length));
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
@@ -409,7 +424,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, payload);
 
     httpserver_send_response(&response);
@@ -427,14 +442,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *contentLength = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
 
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
     unsigned num_tokens = 0;
 
     jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, atoi(contentLength->value), &tokens, &num_tokens);
+    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
     if (r <= 0) {
       free(tokens);
 
@@ -515,8 +530,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     tstr_append(arrayResponse, "]", &arrayResponseLength, 0);
 
-    char payloadLength[8 + 1];
-    frequenc_stringify_int(arrayResponseLength, payloadLength, sizeof(payloadLength));
+    char payload_length[8 + 1];
+    frequenc_stringify_int(arrayResponseLength, payload_length, sizeof(payload_length));
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
@@ -525,7 +540,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, arrayResponse);
 
     httpserver_send_response(&response);
@@ -541,10 +556,10 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmn_parser parser;
     jsmntok_t tokens[32];
 
-    struct httpparser_header *contentLength = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
 
     jsmn_init(&parser);
-    int r = jsmn_parse(&parser, request->body, atoi(contentLength->value), tokens, 32);
+    int r = jsmn_parse(&parser, request->body, atoi(content_length->value), tokens, 32);
     if (r < 0) {
       printf("[main]: Failed to parse JSON: %d\n", r);
 
@@ -571,8 +586,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     char *encoded_track = NULL;
-    char payloadLength[4];
-    frequenc_stringify_int(frequenc_encode_track(&decoded_track, &encoded_track), payloadLength, sizeof(payloadLength));
+    char payload_length[4];
+    frequenc_stringify_int(frequenc_encode_track(&decoded_track, &encoded_track), payload_length, sizeof(payload_length));
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
@@ -581,7 +596,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "text/plain");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, encoded_track);
     
     httpserver_send_response(&response);
@@ -607,6 +622,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     char identifierDecoded[512];
     urldecoder_decode(identifierDecoded, identifier->value);
 
+    printf("[main]: Load tracks request: %s\n", identifierDecoded);
+
     struct tstr_string result = { 0 };
 
     if (strncmp(identifierDecoded, "ytsearch:", sizeof("ytsearch:") - 1) == 0)
@@ -616,8 +633,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     // if (strncmp(identifierDecoded, "ytmsearch:", sizeof("ytmsearch:") - 1) == 0)
     //   result = frequenc_youtube_search(identifierDecoded + (sizeof("ytmsearch:") - 1), 1);
 
-    char payloadLength[8 + 1];
-    frequenc_stringify_int(result.length, payloadLength, sizeof(payloadLength));
+    char payload_length[8 + 1];
+    frequenc_stringify_int(result.length, payload_length, sizeof(payload_length));
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
@@ -626,13 +643,206 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_socket(&response, client);
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
-    httpserver_set_response_header(&response, "Content-Length", payloadLength);
+    httpserver_set_response_header(&response, "Content-Length", payload_length);
     httpserver_set_response_body(&response, result.string);
 
     httpserver_send_response(&response);
 
     if (result.allocated)
       free(result.string);
+  }
+
+  else if (strncmp(request->path, "/v1/sessions/", sizeof("/v1/sessions") - 1) == 0) {
+    struct tstr_string_token session_id;
+    tstr_find_between(&session_id, request->path, NULL, (size_t)sizeof("/v1/sessions/") - 1, "/", 0);
+
+    if (session_id.start == 0 || session_id.end == 0) {
+      printf("[main]: No session ID found.\n");
+
+      goto bad_request;
+    }
+
+    char session_id_str[16 + 1];
+    frequenc_fast_copy(request->path + session_id.start, session_id_str, session_id.end - session_id.start);
+
+    struct tablec_bucket *bucket = tablec_get(&clients, session_id_str);
+
+    if (bucket == NULL) {
+      printf("[main]: Session ID not found.\n");
+
+      goto bad_request;
+    }
+
+    struct client_authorization *client_auth = bucket->value;
+
+    if (client_auth->disconnected) {
+      printf("[main]: Cannot access a disconnected session.\n");
+
+      goto bad_request;
+    }
+
+    struct tstr_string_token guild_id;
+    tstr_find_between(&guild_id, request->path, "/players/", session_id.end, "\0", 0);
+
+    if (guild_id.start == 0 || guild_id.end == 0) {
+      printf("[main]: No guild ID found.\n");
+
+      goto bad_request;
+    }
+
+    char guild_id_str[19 + 1];
+    frequenc_fast_copy(request->path + guild_id.start, guild_id_str, guild_id.end - guild_id.start);
+
+    struct tablec_bucket *guild_bucket = tablec_get(&client_auth->guilds, guild_id_str);
+    struct client_guild_information *guild_info = NULL;
+
+    if (guild_bucket == NULL) {
+      if (strcmp(request->method, "GET") == 0) {
+        printf("[main]: Guild ID not found.\n");
+
+        struct httpserver_response response;
+        struct httpserver_header headers_buffer[3];
+        httpserver_init_response(&response, headers_buffer, 3);
+
+        httpserver_set_response_socket(&response, client);
+        httpserver_set_response_status(&response, 404);
+
+        httpserver_send_response(&response);
+
+        return;
+      }
+
+      if (tablec_full(&client_auth->guilds) == -1) {
+        struct tablec_bucket *old_guild_buckets = client_auth->guilds.buckets;
+        struct tablec_bucket *new_guild_buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * client_auth->guilds.capacity * 2);
+
+        cthreads_mutex_lock(&mutex);
+        if (tablec_resize(&client_auth->guilds, new_guild_buckets, client_auth->guilds.capacity * 2) == -1) {
+          cthreads_mutex_unlock(&mutex);
+
+          printf("[main]: Guilds hashtable resizing failed. Exiting.\n");
+
+          exit(1);
+        }
+        cthreads_mutex_unlock(&mutex);
+
+        free(old_guild_buckets);
+      }
+
+      guild_info = frequenc_safe_malloc(sizeof(struct client_guild_information));
+      guild_info->guild_id = strtol(guild_id_str, NULL, 10);
+
+      cthreads_mutex_lock(&mutex);
+      tablec_set(&client_auth->guilds, guild_id_str, guild_info);
+      cthreads_mutex_unlock(&mutex);
+    } else {
+      guild_info = guild_bucket->value;
+    }
+
+    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
+
+    jsmn_parser parser;
+    jsmntok_t *tokens = NULL;
+    unsigned num_tokens = 0;
+
+    jsmn_init(&parser);
+    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
+    if (r <= 0) {
+      free(tokens);
+
+      printf("[main]: Failed to parse JSON: %d\n", r);
+
+      goto bad_request;
+    }
+
+    jsmnf_loader loader;
+    jsmnf_pair *pairs = NULL;
+    unsigned num_pairs = 0;
+
+    jsmnf_init(&loader);
+    r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
+    if (r <= 0) {
+      free(tokens);
+      free(pairs);
+      
+      printf("[main]: Failed to load JSON: %d\n", r);
+
+      goto bad_request;
+    }
+
+    jsmnf_pair *voice = jsmnf_find(pairs, request->body, "voice", sizeof("voice") - 1);
+
+    if (voice == NULL) {
+      free(tokens);
+      free(pairs);
+
+      printf("[main]: No voice object found.\n");
+
+      goto bad_request;
+    }
+
+    jsmnf_pair *token = jsmnf_find(voice, request->body, "token", sizeof("token") - 1);
+
+    if (token == NULL) {
+      free(tokens);
+      free(pairs);
+
+      printf("[main]: No token field found.\n");
+
+      goto bad_request;
+    }
+
+    jsmnf_pair *endpoint = jsmnf_find(voice, request->body, "endpoint", sizeof("endpoint") - 1);
+
+    if (endpoint == NULL) {
+      free(tokens);
+      free(pairs);
+
+      printf("[main]: No endpoint field found.\n");
+
+      goto bad_request;
+    }
+
+    // "session_id" field
+    jsmnf_pair *discord_session_id = jsmnf_find(voice, request->body, "session_id", sizeof("session_id") - 1);
+
+    if (discord_session_id == NULL) {
+      free(tokens);
+      free(pairs);
+
+      printf("[main]: No session_id field found.\n");
+
+      goto bad_request;
+    }
+
+    char *voice_token = frequenc_safe_malloc(token->v.len + 1);
+    char *voice_endpoint = frequenc_safe_malloc(endpoint->v.len + 1);
+    char *voice_session_id = frequenc_safe_malloc(discord_session_id->v.len + 1);
+
+    frequenc_fast_copy(request->body + token->v.pos, voice_token, token->v.len);
+    frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
+    frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
+
+    guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
+    guild_info->vc_info->token = voice_token;
+    guild_info->vc_info->endpoint = voice_endpoint;
+    guild_info->vc_info->session_id = voice_session_id;
+
+    free(tokens);
+    free(pairs);
+
+    printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, voice_token, voice_endpoint, voice_session_id);
+
+    struct httpserver_response response;
+    struct httpserver_header headers_buffer[3];
+    httpserver_init_response(&response, headers_buffer, 3);
+
+    httpserver_set_response_socket(&response, client);
+    httpserver_set_response_status(&response, 200);
+
+    httpserver_send_response(&response);
+
+    return;
   }
 
   else {

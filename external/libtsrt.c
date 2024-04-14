@@ -7,6 +7,7 @@
 #include <stdlib.h> // size_t, NULL
 #include <stdio.h> // printf
 #include <string.h> // strlen
+#include <unistd.h>
 
 #include "libtstr.h"
 
@@ -39,15 +40,15 @@ void tstr_find_between(struct tstr_string_token *result, const char *str, const 
           result->start = i + 1;
           j = 0;
 
-          if (end == NULL) {
-            result->end = i;
-
-            return;
-          }
-
           loop:
 
           while (str[i] != '\0') {
+            if (end == NULL) {
+              result->end = ++i;
+
+              continue;
+            }
+
             if (str[i] == end[j]) {
               if (result->end == 0) result->end = i;
               j++;

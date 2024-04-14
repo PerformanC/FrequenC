@@ -261,7 +261,7 @@ void frequenc_stringify_int(int length, char *result, size_t result_size) {
 
 int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *result) {
   struct tstr_string_token separation_result;
-  tstr_find_between(&separation_result, client_info, " ", 0, NULL, 0);
+  tstr_find_between(&separation_result, client_info, " ", 0, " ", 0);
 
   if (separation_result.start == 0) return -1;
 

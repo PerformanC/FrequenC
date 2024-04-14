@@ -94,7 +94,65 @@ void frequenc_set_ws_response_body(struct frequenc_ws_message *response, char *b
 }
 
 void frequenc_send_ws_response(struct frequenc_ws_message *response) {
-  (void)response;
+  size_t payload_start_index = 2;
+  size_t payload_length = response->payload_length;
+
+  unsigned int mask[] = { 0, 0, 0, 0 };
+  
+  srand(frequenc_safe_seeding());
+
+  mask[0] = rand();
+  mask[1] = rand();
+  mask[2] = rand();
+  mask[3] = rand();
+
+  payload_start_index += 4;
+
+  if (payload_length >= 65536) {
+    payload_start_index += 8;
+    payload_length = 127;
+  } else if (payload_length > 125) {
+    payload_start_index += 2;
+    payload_length = 126;
+  }
+
+  unsigned char *buffer = frequenc_safe_malloc(payload_start_index + response->payload_length * sizeof(unsigned char));
+
+  buffer[0] = response->opcode | 128;
+  buffer[1] = payload_length;
+
+  if (payload_length == 126) {
+    buffer[2] = response->payload_length >> 8;
+    buffer[3] = response->payload_length & 0xFF;
+  } else if (payload_length == 127) {
+    buffer[2] = buffer[3] = 0;
+    buffer[4] = response->payload_length >> 56;
+    buffer[5] = response->payload_length >> 48;
+    buffer[6] = response->payload_length >> 40;
+    buffer[7] = response->payload_length >> 32;
+    buffer[8] = response->payload_length >> 24;
+    buffer[9] = response->payload_length >> 16;
+    buffer[10] = response->payload_length >> 8;
+    buffer[11] = response->payload_length & 0xFF;
+  }
+
+  memcpy(buffer + payload_start_index, response->buffer, response->payload_length);
+
+  buffer[1] |= 128;
+  buffer[payload_start_index - 4] = mask[0];
+  buffer[payload_start_index - 3] = mask[1];
+  buffer[payload_start_index - 2] = mask[2];
+  buffer[payload_start_index - 1] = mask[3];
+
+  for (size_t i = 0; i < response->payload_length; ++i) {
+    buffer[payload_start_index + i] ^= mask[i & 3];
+  }
+
+  csocket_server_send(response->client, (char *)buffer, payload_start_index + response->payload_length);
+
+  free(buffer);
+
+  return;
 }
 
 int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_frame *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_frame *message)) {

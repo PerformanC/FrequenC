@@ -5,7 +5,7 @@
 #include "httpclient.h"
 
 #define _frequenc_youtube_get_client_name(type) (type == 0 ? "ANDROID" : "ANDROID_MUSIC")
-#define _frequenc_youtube_get_client_version(type) (type == 0 ? "19.10.33" : "6.42.52")
+#define _frequenc_youtube_get_client_version(type) (type == 0 ? "19.13.34" : "6.42.52")
 
 /* TODO: Replace for a macro for using stack allocated chars */
 struct tstr_string frequenc_youtube_search(char *query, int type) {
@@ -17,13 +17,10 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   snprintf(body, body_size,
   "{"
     "\"context\":{"
-      "\"thirdParty\":{"
-        "\"embedUrl\":\"https://google.com\""
-      "},"
       "\"client\":{"
+        "\"userAgent\": \"com.google.android.youtube/%s (Linux; U; Android 14 gzip)\","
         "\"clientName\":\"%s\","
         "\"clientVersion\":\"%s\","
-        "\"androidSdkVersion\":\"34\","
         "\"screenDensityFloat\":1,"
         "\"screenHeightPoints\":1080,"
         "\"screenPixelDensity\":1,"
@@ -32,7 +29,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     "},"
     "\"query\":\"%s\","
     "\"params\":\"EgIQAQ%%3D%%3D\"" // %% = escaped %
-  "}", _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
+  "}", _frequenc_youtube_get_client_version(type), _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
 
   struct httpclient_request_params request = {
     .host = "www.youtube.com",
@@ -223,10 +220,16 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       char *length_str = frequenc_safe_malloc((length->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + length->v.pos, length_str, length->v.len);
 
+      printf("identifier: %s\n", identifier_str);
+      printf("author: %s\n", author_str);
+      printf("length: %s\n", length_str);
+
       size_t length_int = 0;
 
       if (length) {
         int amount = tstr_find_amount(length_str, ":");
+
+        printf("amount: %d\n", amount);
 
         switch (amount) {
           case 0: {
@@ -245,11 +248,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
             free(length_str_minutes);
 
-            struct tstr_string_token length_str_utils2;
-            tstr_find_between(&length_str_utils2, length_str, NULL, length_str_utils.end + 1, ":", 0);
-
-            char *length_str_seconds = frequenc_safe_malloc((length_str_utils2.end - length_str_utils2.start + 1) * sizeof(char));
-            frequenc_fast_copy(length_str + length_str_utils2.start, length_str_seconds, length_str_utils2.end - length_str_utils2.start);
+            char *length_str_seconds = frequenc_safe_malloc((length->v.len - length_str_utils.end + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils.end + 1, length_str_seconds, length->v.len - length_str_utils.end);
 
             length_int += atoi(length_str_seconds) * 1000;
 
@@ -278,11 +278,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
             free(length_str_minutes);
 
-            struct tstr_string_token length_str_utils3;
-            tstr_find_between(&length_str_utils3, length_str, NULL, length_str_utils2.end + 1, ":", 0);
-
-            char *length_str_seconds = frequenc_safe_malloc((length_str_utils3.end - length_str_utils3.start + 1) * sizeof(char));
-            frequenc_fast_copy(length_str + length_str_utils3.start, length_str_seconds, length_str_utils3.end - length_str_utils3.start);
+            char *length_str_seconds = frequenc_safe_malloc((length->v.len - length_str_utils2.end + 1) * sizeof(char));
+            frequenc_fast_copy(length_str + length_str_utils2.end + 1, length_str_seconds, length->v.len - length_str_utils2.end);
 
             length_int += atoi(length_str_seconds) * 1000;
 
