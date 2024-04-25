@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+
 #include "utils.h"
 #include "libtstr.h"
 #include "httpclient.h"
@@ -181,10 +182,10 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
   int i = 0;
   while (i < videos->size) {
-    char i2Str[11 + 1];
-    snprintf(i2Str, sizeof(i2Str), "%d", i); /* TODO: Replace snprintf */
+    char i2_str[11 + 1];
+    snprintf(i2_str, sizeof(i2_str), "%d", i); /* TODO: Replace snprintf */
 
-    path[6] = i2Str;
+    path[6] = i2_str;
 
     path[7] = "compactVideoRenderer";
     jsmnf_pair *video = jsmnf_find_path(pairs, response.body, path, 8);
@@ -211,6 +212,17 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       path[11] = "text";
       jsmnf_pair *title = jsmnf_find_path(pairs, response.body, path, 12);
 
+      path[8] = "thumbnail";
+      path[9] = "thumbnails";
+      jsmnf_pair *thumbnails = jsmnf_find_path(pairs, response.body, path, 10);
+      
+      char i3_str[11 + 1];
+      snprintf(i3_str, sizeof(i3_str), "%d", thumbnails->size - 1); /* TODO: Replace snprintf */
+
+      path[10] = i3_str;
+      path[11] = "url";
+      jsmnf_pair *artworkUrl = jsmnf_find_path(pairs, response.body, path, 12);
+
       char *identifier_str = frequenc_safe_malloc((identifier->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + identifier->v.pos, identifier_str, identifier->v.len);
 
@@ -220,16 +232,10 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       char *length_str = frequenc_safe_malloc((length->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + length->v.pos, length_str, length->v.len);
 
-      printf("identifier: %s\n", identifier_str);
-      printf("author: %s\n", author_str);
-      printf("length: %s\n", length_str);
-
       size_t length_int = 0;
 
       if (length) {
         int amount = tstr_find_amount(length_str, ":");
-
-        printf("amount: %d\n", amount);
 
         switch (amount) {
           case 0: {
@@ -296,8 +302,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       char *uri_str = frequenc_safe_malloc(((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char));
       snprintf(uri_str, ((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char), "https://www.youtube.com/watch?v=%s", identifier_str);
 
-      char *artworkUrl_str = frequenc_safe_malloc(((sizeof("https://i.ytimg.com/vi/") - 1) + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char));
-      snprintf(artworkUrl_str, ((sizeof("https://i.ytimg.com/vi/") - 1) + identifier->v.len + sizeof("/maxresdefault.jpg") - 1 + 1) * sizeof(char), "https://i.ytimg.com/vi/%s/maxresdefault.jpg", identifier_str);
+      char *artworkUrl_str = frequenc_safe_malloc((artworkUrl->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + artworkUrl->v.pos, artworkUrl_str, artworkUrl->v.len);
 
       struct frequenc_track_info trackInfo = {
         .title = title_str,
