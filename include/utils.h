@@ -40,4 +40,6 @@ int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *r
 
 void frequenc_free_client_info(struct frequenc_client_info *client);
 
+void frequenc_sleep(int ms);
+
 #endif

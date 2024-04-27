@@ -95,14 +95,43 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   http_request->headers_length = i;
 
-  if ((strcmp(http_request->method, "POST") == 0 || strcmp(http_request->method, "PUT") == 0) && content_length > 0) {
-    if (content_length <= 0) return -1;
+  struct httpparser_header *transfer_encoding_header = httpparser_get_header(http_request, "Transfer-Encoding");
 
+  /* TODO: Should it be limited per method? */
+  if (content_length > 0 || transfer_encoding_header != NULL) {
     struct httpparser_header *content_type_header = httpparser_get_header(http_request, "Content-Type");
     if (content_type_header == NULL) return -1;
 
-    http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
-    frequenc_fast_copy((char *)request + headers_end.end + 4, http_request->body, content_length);
+    if (transfer_encoding_header != NULL && strcmp(transfer_encoding_header->value, "chunked") == 0) {
+      const char *body_and_length = request + headers_end.end + 4;
+
+      struct tstr_string_token chunk_size;
+      tstr_find_between(&chunk_size, body_and_length, NULL, 0, "\r\n", 0);
+
+      if (chunk_size.end == 0) return -1;
+
+      char chunk_size_str[5];
+      frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
+
+      http_request->chunk_length = strtol(chunk_size_str, NULL, 16);
+      http_request->body = frequenc_safe_malloc((http_request->chunk_length + 1) * sizeof(char));
+      http_request->body_length = snprintf(http_request->body, (http_request->chunk_length + 1), "%s", body_and_length + chunk_size.end + 2);
+
+      /* TODO: Implement chunk handling */
+      http_request->finished = http_request->body_length == http_request->chunk_length;
+    } else {
+      http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
+      http_request->body_length = snprintf(http_request->body, (content_length + 1), "%s", request + headers_end.end + 4);
+
+      if (http_request->body_length != (size_t)content_length) {
+        free(http_request->body);
+
+        return -1;
+      }
+
+      http_request->body_length = content_length;
+      http_request->finished = true;
+    }
   } else {
     if (content_length > 0) return -1;
   }

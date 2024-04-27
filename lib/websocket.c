@@ -30,13 +30,27 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
 
   if (payload_length == 126) {
     start_index += 2;
-    payload_length = (buffer[start_index] << 8) | buffer[start_index + 1];
+
+    /* TODO: how portable is __bswap_16? */
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      uint8_t *payload_length_ptr = (uint8_t *)&buffer[2];
+      payload_length = (payload_length_ptr[0] << 8) | payload_length_ptr[1];
+    #else
+      uint8_t *payload_length_ptr = (uint8_t *)&buffer[3];
+      payload_length = (payload_length_ptr[1] << 8) | payload_length_ptr[0];
+    #endif
   } else if (payload_length == 127) {
     start_index += 8;
 
-    for (size_t i = 0; i < 8; i++) {
-      payload_length = (payload_length << 8) | buffer[i + 2];
-    }
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      for (size_t i = 0; i < 8; i++) {
+        payload_length = (payload_length << 8) | buffer[i + 2];
+      }
+    #else
+      for (size_t i = 0; i < 8; i++) {
+        payload_length = (payload_length << 8) | buffer[9 - i];
+      }
+    #endif
   }
 
   if (is_masked) {
@@ -69,6 +83,20 @@ void frequenc_gen_accept_key(char *key, char *output) {
 
   SHA1CInit(&sha);
   SHA1CUpdate(&sha, (const unsigned char *)concatenated_string, concatenatedStringLength);
+  SHA1CFinal((unsigned char *)results, &sha);
+
+  results[20] = '\0';
+
+  b64_encode((unsigned char *)results, output, sizeof(results) - 1);
+}
+
+void frequenc_key_to_base64(char *key, char *output) {
+  char results[20 + 1];
+
+  SHA1C_CTX sha;
+
+  SHA1CInit(&sha);
+  SHA1CUpdate(&sha, (const unsigned char *)key, strlen(key));
   SHA1CFinal((unsigned char *)results, &sha);
 
   results[20] = '\0';
@@ -155,9 +183,8 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   return;
 }
 
-int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_frame *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_frame *message)) {
+int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, struct frequenc_ws_cbs *cbs) {
   int header_key_char_size = sizeof(request->headers[0].key);
-  int header_value_char_size = sizeof(request->headers[0].value);
 
   request->headers[request->headers_length] = (struct httpparser_header) {
     .key = "Upgrade",
@@ -176,20 +203,15 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
   srand(frequenc_safe_seeding());
 
-  long keyInt = (long)rand();
+  size_t keyInt = (long)rand();
 
-  while (keyInt < 9999999999999999) {
-    keyInt *= 10;
-  }
-
-  char key[17 + 1];
-  snprintf(key, sizeof(key), "%ld", keyInt);
+  frequenc_key_to_base64((char *)&keyInt, request->headers[request->headers_length + 3].value);
+  request->headers[request->headers_length + 3].value[24] = '\0';
 
   char accept_key[29];
-  frequenc_gen_accept_key(key, accept_key);
+  frequenc_gen_accept_key(request->headers[request->headers_length + 3].value, accept_key);
 
   snprintf(request->headers[request->headers_length + 3].key, header_key_char_size, "Sec-WebSocket-Key");
-  snprintf(request->headers[request->headers_length + 3].value, header_value_char_size, "%s", key);
 
   request->headers_length += 4;
 
@@ -204,10 +226,12 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   if (response->status != 101) {
     httpclient_shutdown(response);
 
-    perror("[websocket]: Server didn't upgrade connection to WebSocket");
+    printf("[websocket]: Server didn't upgrade connection to WebSocket: %d\n", response->status);
 
     return -1;
   }
+
+  cbs->on_connect(response, cbs->user_data);
 
   char packet[TCPLIMITS_PACKET_SIZE + 1];
   char *continue_buffer = NULL;
@@ -231,7 +255,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
     struct frequenc_ws_frame header = frequenc_parse_ws_frame(packet);
 
-    printf("[websocket]: Received frame with opcode %d\n", header.opcode);
+    printf("[websocket]: Received frame with opcode %d, fin %d, payload length %ld\n", header.opcode, header.fin, header.payload_length);
 
     switch (header.opcode) {
       case 0: {
@@ -252,7 +276,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
           continue_frame.buffer = continue_buffer;
           continue_frame.payload_length = continue_buffer_length;
 
-          on_message(response, &continue_frame);
+          cbs->on_message(response, &continue_frame, cbs->user_data);
 
           frequenc_cleanup(continue_buffer);
           continue_buffer_length = 0;
@@ -271,17 +295,25 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
           break;
         }
 
-        on_message(response, &header);
+        cbs->on_message(response, &header, cbs->user_data);
 
         break;
       }
       case 8: {
-        unsigned short close_code = header.buffer[0] << 8 | header.buffer[1];
+        /* TODO: how portable is __bswap_16? */
+        #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+          uint8_t *close_code_ptr = (uint8_t *)&header.buffer[0];
+          unsigned short close_code = (close_code_ptr[0] << 8) | close_code_ptr[1];
+        #else
+          uint8_t *close_code_ptr = (uint8_t *)&buffer[1];
+          unsigned short close_code = (close_code_ptr[1] << 8) | close_code_ptr[0];
+        #endif
 
         header.buffer += 2;
 
         printf("[websocket]: Connection closed with code %d\n", close_code);
-        onClose(response, &header);
+
+        cbs->on_close(response, &header, cbs->user_data);
 
         goto exit;
       }

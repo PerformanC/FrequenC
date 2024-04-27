@@ -356,8 +356,6 @@ size_t _calculate_response_length(struct httpserver_response *response) {
 }
 
 void httpserver_send_response(struct httpserver_response *response) {
-  // httpserver_set_response_header(response, "Connection", "close");
-
   size_t length = _calculate_response_length(response);
 
   char *response_string = frequenc_safe_malloc(length + 1);

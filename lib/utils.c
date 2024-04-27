@@ -3,8 +3,15 @@
 #include <stdlib.h>
 #if __linux__
   #include <sys/random.h>
-#elif ALLOW_UNSECURE_RANDOM && !_WIN32
-  #include <time.h>
+#endif
+#ifdef _WIN32
+  #include <Windows.h>
+#else
+  #if _POSIX_C_SOURCE >= 199309L
+    #include <time.h>
+  #else
+    #include <unistd.h>
+  #endif
 #endif
 
 #define JSMN_HEADER
@@ -296,4 +303,20 @@ void frequenc_free_client_info(struct frequenc_client_info *client) {
   frequenc_cleanup(client->name);
   frequenc_cleanup(client->version);
   frequenc_cleanup(client->bot_name);
+}
+
+void frequenc_sleep(int ms) {
+  #ifdef _WIN32
+    Sleep(ms);
+  #else
+    #if _POSIX_C_SOURCE >= 199309L
+      struct timespec ts;
+      ts.tv_sec = ms / 1000;
+      ts.tv_nsec = (ms % 1000) * 1000000;
+
+      nanosleep(&ts, NULL);
+    #else
+      usleep(ms * 1000);
+    #endif
+  #endif
 }

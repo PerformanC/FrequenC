@@ -25,6 +25,13 @@ struct frequenc_ws_message {
   size_t payload_length;
 };
 
+struct frequenc_ws_cbs {
+  void *user_data;
+  void (*on_message)(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data);
+  void (*on_close)(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data);
+  void (*on_connect)(struct httpclient_response *client, void *user_data);
+};
+
 struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer);
 
 void frequenc_gen_accept_key(char *key, char *output);
@@ -37,7 +44,7 @@ void frequenc_set_ws_response_body(struct frequenc_ws_message *response, char *b
 
 void frequenc_send_ws_response(struct frequenc_ws_message *response);
 
-int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, void (*on_message)(struct httpclient_response *client, struct frequenc_ws_frame *message), void (*onClose)(struct httpclient_response *client, struct frequenc_ws_frame *message));
+int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, struct frequenc_ws_cbs *cbs);
 
 int frequenc_send_text_ws_client(struct httpclient_response *response, char *message);
 

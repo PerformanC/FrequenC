@@ -4,21 +4,21 @@
 
 #include "httpserver.h"
 #include "websocket.h"
-#define JSMN_STRICT /* Set strict mode for jsmn (JSON tokenizer) */
-#include "jsmn.h"
+#define JSMN_HEADER
 #include "jsmn-find.h"
-#include "utils.h"
 #include "tablec.h"
 #include "queryparser.h"
-#include "track.h"
 #include "urldecode.h"
 #include "cthreads.h"
 #include "csocket-server.h"
+#include "pdvoice.h"
 #include "types.h"
 
 /* Sources */
 #include "youtube.h"
 /* Sources end */
+#include "track.h"
+#include "utils.h"
 
 #define VERSION "1.0.0"
 #define VERSION_LENGTH "5"
@@ -63,6 +63,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   struct httpparser_header *authorization = httpparser_get_header(request, "Authorization");
 
   if (authorization == NULL || strcmp(authorization->value, AUTHORIZATION) != 0) {
+    printf("CALBACKKKKKKKKKKKKKKKKKKKK ERROR UNAUTHORIZED\n");
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
     httpserver_init_response(&response, headers_buffer, 3);
@@ -136,13 +137,13 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     httpserver_send_response(&response);
 
-    struct tablec_bucket *selectedClient;
+    struct tablec_bucket *selected_client;
 
     cthreads_mutex_lock(&mutex);
-    if (session_id != NULL && (selectedClient = tablec_get(&clients, session_id->value)) != NULL && ((struct client_authorization *)selectedClient->value)->disconnected) {
+    if (session_id != NULL && (selected_client = tablec_get(&clients, session_id->value)) != NULL && ((struct client_authorization *)selected_client->value)->disconnected) {
       cthreads_mutex_unlock(&mutex);
 
-      struct client_authorization *client_auth = selectedClient->value;
+      struct client_authorization *client_auth = selected_client->value;
 
       client_auth->user_id = user_id->value;
       client_auth->client = client;
@@ -665,15 +666,15 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     char session_id_str[16 + 1];
     frequenc_fast_copy(request->path + session_id.start, session_id_str, session_id.end - session_id.start);
 
-    struct tablec_bucket *bucket = tablec_get(&clients, session_id_str);
+    struct tablec_bucket *session_bucket = tablec_get(&clients, session_id_str);
 
-    if (bucket == NULL) {
+    if (session_bucket == NULL) {
       printf("[main]: Session ID not found.\n");
 
       goto bad_request;
     }
 
-    struct client_authorization *client_auth = bucket->value;
+    struct client_authorization *client_auth = session_bucket->value;
 
     if (client_auth->disconnected) {
       printf("[main]: Cannot access a disconnected session.\n");
@@ -739,14 +740,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       guild_info = guild_bucket->value;
     }
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
-
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
     unsigned num_tokens = 0;
 
     jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
+    int r = jsmn_parse_auto(&parser, request->body, request->body_length, &tokens, &num_tokens);
     if (r <= 0) {
       free(tokens);
 
@@ -831,7 +830,22 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     free(tokens);
     free(pairs);
 
-    printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, voice_token, voice_endpoint, voice_session_id);
+    printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
+
+    size_t guild_id_str_length = strlen(guild_id_str);
+    char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
+    frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
+
+    struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
+    client_vc->bot_id = client_auth->user_id;
+    client_vc->guild_id = guild_id_str_alloced;
+
+    pdvoice_init(client_vc);
+
+    pdvoice_update_state(client_vc, guild_info->vc_info->session_id);
+    pdvoice_update_server(client_vc, guild_info->vc_info->endpoint, guild_info->vc_info->token);
+
+    pdvoice_connect(client_vc);
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];

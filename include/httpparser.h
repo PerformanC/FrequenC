@@ -16,6 +16,10 @@ struct httpparser_request {
   int headers_max_length;
   struct httpparser_header *headers;
   char *body;
+  size_t body_length;
+  int chunk_length;
+  /* TODO: Implement chunk handling */
+  bool finished;
 };
 
 struct httpparser_response {
