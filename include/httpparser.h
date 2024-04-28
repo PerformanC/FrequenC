@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#include "types.h"
+
 struct httpparser_header {
   char key[64];
   char value[1024];

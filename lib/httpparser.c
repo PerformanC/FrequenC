@@ -118,7 +118,7 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
       http_request->body_length = snprintf(http_request->body, (http_request->chunk_length + 1), "%s", body_and_length + chunk_size.end + 2);
 
       /* TODO: Implement chunk handling */
-      http_request->finished = http_request->body_length == http_request->chunk_length;
+      http_request->finished = http_request->body_length == (size_t)http_request->chunk_length;
     } else {
       http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
       http_request->body_length = snprintf(http_request->body, (content_length + 1), "%s", request + headers_end.end + 4);

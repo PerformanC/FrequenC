@@ -55,8 +55,7 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
 }
 
 void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
-  struct pdvoice *connection = user_data;
-  (void)connection; (void)client;
+  (void)client; (void) message; (void) user_data;
 
   printf("[pdvoice]: Connection closed. Handling isn't done yet.\n");
 }
