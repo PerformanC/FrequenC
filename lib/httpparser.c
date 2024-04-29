@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "libtstr.h"
 
@@ -24,6 +25,12 @@ int _httpparser_check_method(const char *method) {
   }
 
   return -1;
+}
+
+void _httpparser_to_lower_case(char *str) {
+  for (int i = 0; str[i]; i++) {
+    str[i] = tolower(str[i]);
+  }
 }
 
 int httpparser_parse_request(struct httpparser_request *http_request, const char *request) {
@@ -78,15 +85,15 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
     if (header_name.start == 0 || header_name.end == 0) return -1;
 
-    if (strstr(request + header.start, "Content-Length: ") == request + header.start) {
-      content_length = atoi(request + header.start + sizeof("Content-Length: ") - 1);
-    }
-
     int key_length = header_name.end - header_name.start;
     int value_length = header.end - header_name.end - 2;
 
     frequenc_fast_copy((char *)request + header_name.start, http_request->headers[i].key, key_length);
+    _httpparser_to_lower_case(http_request->headers[i].key);
     frequenc_fast_copy((char *)request + header_name.end + 2, http_request->headers[i].value, value_length);
+
+    if (strcmp(http_request->headers[i].key, "content-length") == 0)
+      content_length = atoi(request + header.start + sizeof("content-length: ") - 1);
 
     last_header = header;
 
@@ -95,11 +102,11 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   http_request->headers_length = i;
 
-  struct httpparser_header *transfer_encoding_header = httpparser_get_header(http_request, "Transfer-Encoding");
+  struct httpparser_header *transfer_encoding_header = httpparser_get_header(http_request, "transfer-encoding");
 
   /* TODO: Should it be limited per method? */
   if (content_length > 0 || transfer_encoding_header != NULL) {
-    struct httpparser_header *content_type_header = httpparser_get_header(http_request, "Content-Type");
+    struct httpparser_header *content_type_header = httpparser_get_header(http_request, "content-type");
     if (content_type_header == NULL) return -1;
 
     if (transfer_encoding_header != NULL && strcmp(transfer_encoding_header->value, "chunked") == 0) {
@@ -212,15 +219,15 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
 
     if (header_name.start == 0 || header_name.end == 0) return -1;
 
-    if (strstr(request + header.start, "Content-Length: ") == request + header.start) {
-      content_length = atoi(request + header.start + sizeof("Content-Length: ") - 1);
-    }
-
     int key_length = header_name.end - header_name.start;
     int value_length = header.end - header_name.end - 2;
 
-    snprintf(http_response->headers[i].key, sizeof(http_response->headers[i].key), "%.*s", key_length, request + header_name.start);
-    snprintf(http_response->headers[i].value, sizeof(http_response->headers[i].value), "%.*s", value_length, request + header_name.end + 2);
+    frequenc_fast_copy(request + header_name.start, http_response->headers[i].key, key_length);
+    _httpparser_to_lower_case(http_response->headers[i].key);
+    frequenc_fast_copy(request + header_name.end + 2, http_response->headers[i].value, value_length);
+
+    if (strcmp(http_response->headers[i].key, "content-length") == 0)
+      content_length = atoi(request + header.start + sizeof("content-length: ") - 1);
 
     last_header = header;
 

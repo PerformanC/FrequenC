@@ -84,7 +84,7 @@ char *frequenc_generate_session_id(char *result) {
   return result;
 }
 
-void frequenc_fast_copy(char *src, char *dest, size_t size) {
+void frequenc_fast_copy(const char *src, char *dest, size_t size) {
   memcpy(dest, src, size);
   dest[size] = '\0';
 }

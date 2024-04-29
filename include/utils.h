@@ -16,7 +16,7 @@ unsigned int frequenc_safe_seeding(void);
 
 char *frequenc_generate_session_id(char *result);
 
-void frequenc_fast_copy(char *src, char *dest, size_t size);
+void frequenc_fast_copy(const char *src, char *dest, size_t size);
 
 void frequenc_cleanup(void *pointer);
 

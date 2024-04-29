@@ -34,9 +34,6 @@ The HTTP parser of FrequenC is implemented by The PeformanC Organization, and is
 > [!WARNING]
 > Headers amount must be not higher than 10.
 
-> [!WARNING]
-> FrequenC HTTP parser have case-sensitive headers.
-
 ## Fetching the version
 
 FrequenC API may change between versions, some clients may want to keep compability with older versions of FrequenC while keeping the same codebase, for that, it's necessary to check the version of FrequenC before connecting to it.

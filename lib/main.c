@@ -60,10 +60,9 @@ struct httpserver server;
 struct cthreads_mutex mutex;
 
 void callback(struct csocket_server_client *client, int socket_index, struct httpparser_request *request) {
-  struct httpparser_header *authorization = httpparser_get_header(request, "Authorization");
+  struct httpparser_header *authorization = httpparser_get_header(request, "authorization");
 
   if (authorization == NULL || strcmp(authorization->value, AUTHORIZATION) != 0) {
-    printf("CALBACKKKKKKKKKKKKKKKKKKKK ERROR UNAUTHORIZED\n");
     struct httpserver_response response;
     struct httpserver_header headers_buffer[3];
     httpserver_init_response(&response, headers_buffer, 3);
@@ -80,28 +79,28 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   }
 
   if (strcmp(request->path, "/v1/websocket") == 0) {
-    struct httpparser_header *header = httpparser_get_header(request, "Upgrade");
+    struct httpparser_header *header = httpparser_get_header(request, "upgrade");
     if (header == NULL || strcmp(header->value, "websocket") != 0) {
       printf("[main]: No Upgrade header found.\n");
 
       goto bad_request;
     }
 
-    struct httpparser_header *sec_websocket_key = httpparser_get_header(request, "Sec-WebSocket-Key");
+    struct httpparser_header *sec_websocket_key = httpparser_get_header(request, "sec-websocket-key");
     if (sec_websocket_key == NULL) {
       printf("[main]: No Sec-WebSocket-Key header found.\n");
 
       goto bad_request;
     }
 
-    struct httpparser_header *user_id = httpparser_get_header(request, "User-Id");
+    struct httpparser_header *user_id = httpparser_get_header(request, "user-id");
     if (user_id == NULL) {
       printf("[main]: No User-Id header found.\n");
 
       goto bad_request;
     }
 
-    struct httpparser_header *client_info = httpparser_get_header(request, "Client-Info");
+    struct httpparser_header *client_info = httpparser_get_header(request, "client-info");
     if (client_info == NULL) {
       printf("[main]: No Client-Info header found.\n");
 
@@ -119,7 +118,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     frequenc_free_client_info(&parsed_client_info);
 
-    struct httpparser_header *session_id = httpparser_get_header(request, "Session-Id");
+    struct httpparser_header *session_id = httpparser_get_header(request, "session-id");
 
     struct httpserver_response response;
     struct httpserver_header headers_buffer[5];
@@ -306,7 +305,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
 
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
@@ -443,7 +442,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
 
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
@@ -557,7 +556,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmn_parser parser;
     jsmntok_t tokens[32];
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "Content-Length");
+    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
 
     jsmn_init(&parser);
     int r = jsmn_parse(&parser, request->body, atoi(content_length->value), tokens, 32);
