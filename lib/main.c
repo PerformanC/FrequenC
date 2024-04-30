@@ -158,7 +158,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
       struct frequenc_ws_message ws_response;
       ws_response.opcode = 1;
-      ws_response.fin = 1;
+      ws_response.fin = true;
       ws_response.payload_length = payload_length;
       ws_response.buffer = payload;
       ws_response.client = client;
@@ -178,13 +178,13 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     char *gen_session_id = frequenc_safe_malloc((16 + 1) * sizeof(char));
 
-    generateSession:
+    generate_session:
       frequenc_generate_session_id(gen_session_id);
 
       if (tablec_get(&clients, gen_session_id) != NULL) {
         printf("[main]: Session ID collision detected. Generating another one.\n");
 
-        goto generateSession;
+        goto generate_session;
       }
     
     client_auth->user_id = user_id->value;
@@ -194,7 +194,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct tablec_bucket *guilds = frequenc_safe_malloc(sizeof(struct tablec_bucket));
     tablec_init(&client_auth->guilds, guilds, 1);
 
-    char payload[1024];
+    char payload[63 + 16 + 1];
     int payload_length = snprintf(payload, sizeof(payload),
       "{"
         "\"op\":\"ready\","
@@ -205,7 +205,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     struct frequenc_ws_message ws_response;
     ws_response.opcode = 1;
-    ws_response.fin = 1;
+    ws_response.fin = true;
     ws_response.payload_length = payload_length;
     ws_response.buffer = payload;
     ws_response.client = client;
@@ -336,9 +336,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    char *arrayResponse = frequenc_safe_malloc(2048 * sizeof(char));
+    char *array_response = frequenc_safe_malloc(2048 * sizeof(char));
     size_t arrayResponseLength = 1;
-    arrayResponse[0] = '[';
+    array_response[0] = '[';
 
     jsmnf_pair *f;
 
@@ -356,17 +356,17 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       char payload[2048];
       frequenc_partial_track_info_to_json(&decoded_track, payload, sizeof(payload));
 
-      tstr_append(arrayResponse, payload, &arrayResponseLength, 0);
+      tstr_append(array_response, payload, &arrayResponseLength, 0);
 
       if (i != pairs->size - 1)
-        tstr_append(arrayResponse, ",", &arrayResponseLength, 0);
+        tstr_append(array_response, ",", &arrayResponseLength, 0);
 
       frequenc_free_track_info(&decoded_track);
     }
 
-    arrayResponse[arrayResponseLength] = ']';
+    array_response[arrayResponseLength] = ']';
     arrayResponseLength++;
-    arrayResponse[arrayResponseLength] = '\0';
+    array_response[arrayResponseLength] = '\0';
 
     char payload_length[8 + 1];
     frequenc_stringify_int(arrayResponseLength, payload_length, sizeof(payload_length));
@@ -379,11 +379,11 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
     httpserver_set_response_header(&response, "Content-Length", payload_length);
-    httpserver_set_response_body(&response, arrayResponse);
+    httpserver_set_response_body(&response, array_response);
     
     httpserver_send_response(&response);
 
-    free(arrayResponse);
+    free(array_response);
     free(pairs);
     free(tokens);
   }
@@ -482,9 +482,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    char *arrayResponse = frequenc_safe_malloc((2048 * pairs->size) * sizeof(char));
+    char *array_response = frequenc_safe_malloc((2048 * pairs->size) * sizeof(char));
     size_t arrayResponseLength = 1;
-    arrayResponse[0] = '[';
+    array_response[0] = '[';
 
     for (int i = 0; i < pairs->size; i++) {
       char i_str[10 + 1];
@@ -494,7 +494,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       char *path[2] = { i_str };
       if (frequenc_json_to_track_info(&decoded_track, pairs, request->body, path, 1, sizeof(path) / sizeof(*path)) == -1) {
         frequenc_free_track_info(&decoded_track);
-        free(arrayResponse);
+        free(array_response);
         free(pairs);
         free(tokens);
 
@@ -506,29 +506,29 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
       if (status == -1) {
         frequenc_free_track_info(&decoded_track);
-        free(arrayResponse);
+        free(array_response);
         free(pairs);
         free(tokens);
 
         goto bad_request;
       }
 
-      arrayResponse[arrayResponseLength] = '"';
+      array_response[arrayResponseLength] = '"';
       arrayResponseLength++;
 
-      tstr_append(arrayResponse, encoded_track, &arrayResponseLength, 0);
+      tstr_append(array_response, encoded_track, &arrayResponseLength, 0);
 
       if (i != pairs->size - 1) {
-        tstr_append(arrayResponse, "\",", &arrayResponseLength, 0);
+        tstr_append(array_response, "\",", &arrayResponseLength, 0);
       } else {
-        tstr_append(arrayResponse, "\"", &arrayResponseLength, 0);
+        tstr_append(array_response, "\"", &arrayResponseLength, 0);
       }
 
       frequenc_free_track_info(&decoded_track);
       free(encoded_track);
     }
 
-    tstr_append(arrayResponse, "]", &arrayResponseLength, 0);
+    tstr_append(array_response, "]", &arrayResponseLength, 0);
 
     char payload_length[8 + 1];
     frequenc_stringify_int(arrayResponseLength, payload_length, sizeof(payload_length));
@@ -541,11 +541,11 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_set_response_status(&response, 200);
     httpserver_set_response_header(&response, "Content-Type", "application/json");
     httpserver_set_response_header(&response, "Content-Length", payload_length);
-    httpserver_set_response_body(&response, arrayResponse);
+    httpserver_set_response_body(&response, array_response);
 
     httpserver_send_response(&response);
 
-    free(arrayResponse);
+    free(array_response);
     free(pairs);
     free(tokens);
   }
@@ -770,92 +770,89 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     jsmnf_pair *voice = jsmnf_find(pairs, request->body, "voice", sizeof("voice") - 1);
 
-    if (voice == NULL) {
+    if (voice != NULL) {
+      jsmnf_pair *token = jsmnf_find(voice, request->body, "token", sizeof("token") - 1);
+
+      if (token == NULL) {
+        free(tokens);
+        free(pairs);
+
+        printf("[main]: No token field found.\n");
+
+        goto bad_request;
+      }
+
+      jsmnf_pair *endpoint = jsmnf_find(voice, request->body, "endpoint", sizeof("endpoint") - 1);
+
+      if (endpoint == NULL) {
+        free(tokens);
+        free(pairs);
+
+        printf("[main]: No endpoint field found.\n");
+
+        goto bad_request;
+      }
+
+      jsmnf_pair *discord_session_id = jsmnf_find(voice, request->body, "session_id", sizeof("session_id") - 1);
+
+      if (discord_session_id == NULL) {
+        free(tokens);
+        free(pairs);
+
+        printf("[main]: No session_id field found.\n");
+
+        goto bad_request;
+      }
+
+      char *voice_token = frequenc_safe_malloc(token->v.len + 1);
+      char *voice_endpoint = frequenc_safe_malloc(endpoint->v.len + 1);
+      char *voice_session_id = frequenc_safe_malloc(discord_session_id->v.len + 1);
+
+      frequenc_fast_copy(request->body + token->v.pos, voice_token, token->v.len);
+      frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
+      frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
+
+      guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
+      guild_info->vc_info->token = voice_token;
+      guild_info->vc_info->endpoint = voice_endpoint;
+      guild_info->vc_info->session_id = voice_session_id;
+
       free(tokens);
       free(pairs);
 
-      printf("[main]: No voice object found.\n");
+      printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
 
-      goto bad_request;
+      size_t guild_id_str_length = strlen(guild_id_str);
+      char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
+      frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
+
+      struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
+      client_vc->bot_id = client_auth->user_id;
+      client_vc->guild_id = guild_id_str_alloced;
+
+      pdvoice_init(client_vc);
+
+      pdvoice_update_state(client_vc, guild_info->vc_info->session_id);
+      pdvoice_update_server(client_vc, guild_info->vc_info->endpoint, guild_info->vc_info->token);
+
+      pdvoice_connect(client_vc);
+
+      struct httpserver_response response;
+      struct httpserver_header headers_buffer[3];
+      httpserver_init_response(&response, headers_buffer, 3);
+
+      httpserver_set_response_socket(&response, client);
+      httpserver_set_response_status(&response, 200);
+
+      httpserver_send_response(&response);
+
+      return;
     }
-
-    jsmnf_pair *token = jsmnf_find(voice, request->body, "token", sizeof("token") - 1);
-
-    if (token == NULL) {
-      free(tokens);
-      free(pairs);
-
-      printf("[main]: No token field found.\n");
-
-      goto bad_request;
-    }
-
-    jsmnf_pair *endpoint = jsmnf_find(voice, request->body, "endpoint", sizeof("endpoint") - 1);
-
-    if (endpoint == NULL) {
-      free(tokens);
-      free(pairs);
-
-      printf("[main]: No endpoint field found.\n");
-
-      goto bad_request;
-    }
-
-    // "session_id" field
-    jsmnf_pair *discord_session_id = jsmnf_find(voice, request->body, "session_id", sizeof("session_id") - 1);
-
-    if (discord_session_id == NULL) {
-      free(tokens);
-      free(pairs);
-
-      printf("[main]: No session_id field found.\n");
-
-      goto bad_request;
-    }
-
-    char *voice_token = frequenc_safe_malloc(token->v.len + 1);
-    char *voice_endpoint = frequenc_safe_malloc(endpoint->v.len + 1);
-    char *voice_session_id = frequenc_safe_malloc(discord_session_id->v.len + 1);
-
-    frequenc_fast_copy(request->body + token->v.pos, voice_token, token->v.len);
-    frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
-    frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
-
-    guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
-    guild_info->vc_info->token = voice_token;
-    guild_info->vc_info->endpoint = voice_endpoint;
-    guild_info->vc_info->session_id = voice_session_id;
 
     free(tokens);
     free(pairs);
 
-    printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
-
-    size_t guild_id_str_length = strlen(guild_id_str);
-    char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
-    frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
-
-    struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
-    client_vc->bot_id = client_auth->user_id;
-    client_vc->guild_id = guild_id_str_alloced;
-
-    pdvoice_init(client_vc);
-
-    pdvoice_update_state(client_vc, guild_info->vc_info->session_id);
-    pdvoice_update_server(client_vc, guild_info->vc_info->endpoint, guild_info->vc_info->token);
-
-    pdvoice_connect(client_vc);
-
-    struct httpserver_response response;
-    struct httpserver_header headers_buffer[3];
-    httpserver_init_response(&response, headers_buffer, 3);
-
-    httpserver_set_response_socket(&response, client);
-    httpserver_set_response_status(&response, 200);
-
-    httpserver_send_response(&response);
-
-    return;
+    goto bad_request;
   }
 
   else {
@@ -909,7 +906,7 @@ int ws_callback(struct csocket_server_client *client, struct frequenc_ws_frame *
 
   printf("[main]: Socket: %d\n", csocket_server_client_get_id(client));
   printf("[main]: Opcode: %d\n", ws_frame->opcode);
-  printf("[main]: FIN: %d\n", ws_frame->fin);
+  printf("[main]: FIN: %s\n", ws_frame->fin ? "true" : "false");
   printf("[main]: Length: %zu\n", ws_frame->payload_length);
   printf("[main]: Buffer: |%s|\n", ws_frame->buffer);
 
