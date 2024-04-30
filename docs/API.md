@@ -275,6 +275,28 @@ HTTP/1.1 200 OK
 > [!WARNING]
 > The `endpoint`, `session_id` and `token` are Discord voice server specific, and should not be shared with anyone. However they're only temporarily confidential.
 
+## Get player
+
+This endpoint allows the client to be aware of the latest player information. This should be used only when necessary.
+
+```http
+GET /v1/sessions/xxx/players/xxx
+Authorization: <password>
+```
+
+```json
+{
+  "voice": {
+    "endpoint": "brazil1001.discord.media",
+    "session_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "token": "xxxxxxxxxxxxxxxx"
+  }
+}
+```
+
+> [!WARNING]
+> The `endpoint`, `session_id` and `token` are Discord voice server specific, and should not be shared with anyone. However they're only temporarily confidential.
+
 ## Connecting to the websocket
 
 The websocket is the main way of communication between the client and FrequenC. It's used for sending events, and receiving commands.

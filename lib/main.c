@@ -1,9 +1,9 @@
+/* TODO: move guild buckets to inside of session structure */
+
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
 
-#include "httpserver.h"
-#include "websocket.h"
 #define JSMN_HEADER
 #include "jsmn-find.h"
 #include "tablec.h"
@@ -12,8 +12,11 @@
 #include "cthreads.h"
 #include "csocket-server.h"
 #include "pdvoice.h"
-#include "types.h"
+#include "pjsonb.h"
 
+#include "httpserver.h"
+#include "websocket.h"
+#include "types.h"
 /* Sources */
 #include "youtube.h"
 /* Sources end */
@@ -46,6 +49,7 @@ struct client_guild_vc_info {
 struct client_guild_information {
   unsigned long guild_id;
   struct client_guild_vc_info *vc_info;
+  struct pdvoice *vc_connection;
 };
 
 struct client_authorization {
@@ -696,8 +700,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct tablec_bucket *guild_bucket = tablec_get(&client_auth->guilds, guild_id_str);
     struct client_guild_information *guild_info = NULL;
 
-    if (guild_bucket == NULL) {
-      if (strcmp(request->method, "GET") == 0) {
+    if (strcmp(request->method, "GET") == 0) {
+      if (guild_bucket == NULL) {
         printf("[main]: Guild ID not found.\n");
 
         struct httpserver_response response;
@@ -712,130 +716,25 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         return;
       }
 
-      if (tablec_full(&client_auth->guilds) == -1) {
-        struct tablec_bucket *old_guild_buckets = client_auth->guilds.buckets;
-        struct tablec_bucket *new_guild_buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * client_auth->guilds.capacity * 2);
-
-        cthreads_mutex_lock(&mutex);
-        if (tablec_resize(&client_auth->guilds, new_guild_buckets, client_auth->guilds.capacity * 2) == -1) {
-          cthreads_mutex_unlock(&mutex);
-
-          printf("[main]: Guilds hashtable resizing failed. Exiting.\n");
-
-          exit(1);
-        }
-        cthreads_mutex_unlock(&mutex);
-
-        free(old_guild_buckets);
-      }
-
-      guild_info = frequenc_safe_malloc(sizeof(struct client_guild_information));
-      guild_info->guild_id = strtol(guild_id_str, NULL, 10);
-
-      cthreads_mutex_lock(&mutex);
-      tablec_set(&client_auth->guilds, guild_id_str, guild_info);
-      cthreads_mutex_unlock(&mutex);
-    } else {
       guild_info = guild_bucket->value;
-    }
 
-    jsmn_parser parser;
-    jsmntok_t *tokens = NULL;
-    unsigned num_tokens = 0;
+      struct pjsonb json_response;
+      pjsonb_init(&json_response);
 
-    jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, request->body_length, &tokens, &num_tokens);
-    if (r <= 0) {
-      free(tokens);
+      if (guild_info->vc_info != NULL) {
+        pjsonb_enter_object(&json_response, "voice");
 
-      printf("[main]: Failed to parse JSON: %d\n", r);
+        pjsonb_set_string(&json_response, "token", guild_info->vc_info->token);
+        pjsonb_set_string(&json_response, "endpoint", guild_info->vc_info->endpoint);
+        pjsonb_set_string(&json_response, "session_id", guild_info->vc_info->session_id);
 
-      goto bad_request;
-    }
-
-    jsmnf_loader loader;
-    jsmnf_pair *pairs = NULL;
-    unsigned num_pairs = 0;
-
-    jsmnf_init(&loader);
-    r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
-    if (r <= 0) {
-      free(tokens);
-      free(pairs);
-      
-      printf("[main]: Failed to load JSON: %d\n", r);
-
-      goto bad_request;
-    }
-
-    jsmnf_pair *voice = jsmnf_find(pairs, request->body, "voice", sizeof("voice") - 1);
-
-    if (voice != NULL) {
-      jsmnf_pair *token = jsmnf_find(voice, request->body, "token", sizeof("token") - 1);
-
-      if (token == NULL) {
-        free(tokens);
-        free(pairs);
-
-        printf("[main]: No token field found.\n");
-
-        goto bad_request;
+        pjsonb_leave_object(&json_response);
       }
 
-      jsmnf_pair *endpoint = jsmnf_find(voice, request->body, "endpoint", sizeof("endpoint") - 1);
+      pjsonb_end(&json_response);
 
-      if (endpoint == NULL) {
-        free(tokens);
-        free(pairs);
-
-        printf("[main]: No endpoint field found.\n");
-
-        goto bad_request;
-      }
-
-      jsmnf_pair *discord_session_id = jsmnf_find(voice, request->body, "session_id", sizeof("session_id") - 1);
-
-      if (discord_session_id == NULL) {
-        free(tokens);
-        free(pairs);
-
-        printf("[main]: No session_id field found.\n");
-
-        goto bad_request;
-      }
-
-      char *voice_token = frequenc_safe_malloc(token->v.len + 1);
-      char *voice_endpoint = frequenc_safe_malloc(endpoint->v.len + 1);
-      char *voice_session_id = frequenc_safe_malloc(discord_session_id->v.len + 1);
-
-      frequenc_fast_copy(request->body + token->v.pos, voice_token, token->v.len);
-      frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
-      frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
-
-      guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
-      guild_info->vc_info->token = voice_token;
-      guild_info->vc_info->endpoint = voice_endpoint;
-      guild_info->vc_info->session_id = voice_session_id;
-
-      free(tokens);
-      free(pairs);
-
-      printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
-
-      size_t guild_id_str_length = strlen(guild_id_str);
-      char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
-      frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
-
-      struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
-      client_vc->bot_id = client_auth->user_id;
-      client_vc->guild_id = guild_id_str_alloced;
-
-      pdvoice_init(client_vc);
-
-      pdvoice_update_state(client_vc, guild_info->vc_info->session_id);
-      pdvoice_update_server(client_vc, guild_info->vc_info->endpoint, guild_info->vc_info->token);
-
-      pdvoice_connect(client_vc);
+      char payload_length[8 + 1];
+      frequenc_stringify_int(json_response.position, payload_length, sizeof(payload_length));
 
       struct httpserver_response response;
       struct httpserver_header headers_buffer[3];
@@ -843,16 +742,163 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
       httpserver_set_response_socket(&response, client);
       httpserver_set_response_status(&response, 200);
+      httpserver_set_response_header(&response, "Content-Type", "application/json");
+      httpserver_set_response_header(&response, "Content-Length", payload_length);
+      httpserver_set_response_body(&response, json_response.string);
 
       httpserver_send_response(&response);
 
       return;
     }
 
-    free(tokens);
-    free(pairs);
+    if (strcmp(request->method, "PATCH") == 0) {
+      if (guild_bucket == NULL) {
+        if (tablec_full(&client_auth->guilds) == -1) {
+          struct tablec_bucket *old_guild_buckets = client_auth->guilds.buckets;
+          struct tablec_bucket *new_guild_buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * client_auth->guilds.capacity * 2);
 
-    goto bad_request;
+          cthreads_mutex_lock(&mutex);
+          if (tablec_resize(&client_auth->guilds, new_guild_buckets, client_auth->guilds.capacity * 2) == -1) {
+            cthreads_mutex_unlock(&mutex);
+
+            printf("[main]: Guilds hashtable resizing failed. Exiting.\n");
+
+            exit(1);
+          }
+          cthreads_mutex_unlock(&mutex);
+
+          free(old_guild_buckets);
+        }
+
+        guild_info = frequenc_safe_malloc(sizeof(struct client_guild_information));
+        guild_info->guild_id = strtol(guild_id_str, NULL, 10);
+
+        cthreads_mutex_lock(&mutex);
+        tablec_set(&client_auth->guilds, guild_id_str, guild_info);
+        cthreads_mutex_unlock(&mutex);
+      } else {
+        guild_info = guild_bucket->value;
+      }
+
+      jsmn_parser parser;
+      jsmntok_t *tokens = NULL;
+      unsigned num_tokens = 0;
+
+      jsmn_init(&parser);
+      int r = jsmn_parse_auto(&parser, request->body, request->body_length, &tokens, &num_tokens);
+      if (r <= 0) {
+        free(tokens);
+
+        printf("[main]: Failed to parse JSON: %d\n", r);
+
+        goto bad_request;
+      }
+
+      jsmnf_loader loader;
+      jsmnf_pair *pairs = NULL;
+      unsigned num_pairs = 0;
+
+      jsmnf_init(&loader);
+      r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
+      if (r <= 0) {
+        free(tokens);
+        free(pairs);
+        
+        printf("[main]: Failed to load JSON: %d\n", r);
+
+        goto bad_request;
+      }
+
+      jsmnf_pair *voice = jsmnf_find(pairs, request->body, "voice", sizeof("voice") - 1);
+
+      if (voice != NULL) {
+        jsmnf_pair *token = jsmnf_find(voice, request->body, "token", sizeof("token") - 1);
+
+        if (token == NULL) {
+          free(tokens);
+          free(pairs);
+
+          printf("[main]: No token field found.\n");
+
+          goto bad_request;
+        }
+
+        jsmnf_pair *endpoint = jsmnf_find(voice, request->body, "endpoint", sizeof("endpoint") - 1);
+
+        if (endpoint == NULL) {
+          free(tokens);
+          free(pairs);
+
+          printf("[main]: No endpoint field found.\n");
+
+          goto bad_request;
+        }
+
+        jsmnf_pair *discord_session_id = jsmnf_find(voice, request->body, "session_id", sizeof("session_id") - 1);
+
+        if (discord_session_id == NULL) {
+          free(tokens);
+          free(pairs);
+
+          printf("[main]: No session_id field found.\n");
+
+          goto bad_request;
+        }
+
+        char *voice_token = frequenc_safe_malloc(token->v.len + 1);
+        char *voice_endpoint = frequenc_safe_malloc(endpoint->v.len + 1);
+        char *voice_session_id = frequenc_safe_malloc(discord_session_id->v.len + 1);
+
+        frequenc_fast_copy(request->body + token->v.pos, voice_token, token->v.len);
+        frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
+        frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
+
+        free(tokens);
+        free(pairs);
+
+        guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
+        guild_info->vc_info->token = voice_token;
+        guild_info->vc_info->endpoint = voice_endpoint;
+        guild_info->vc_info->session_id = voice_session_id;
+
+        printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
+
+        size_t guild_id_str_length = strlen(guild_id_str);
+        char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
+        frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
+
+        struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
+        client_vc->bot_id = client_auth->user_id;
+        client_vc->guild_id = guild_id_str_alloced;
+
+        pdvoice_init(client_vc);
+
+        pdvoice_update_state(client_vc, guild_info->vc_info->session_id);
+        pdvoice_update_server(client_vc, guild_info->vc_info->endpoint, guild_info->vc_info->token);
+
+        pdvoice_connect(client_vc);
+
+        guild_info->vc_connection = client_vc;
+
+        struct httpserver_response response;
+        struct httpserver_header headers_buffer[3];
+        httpserver_init_response(&response, headers_buffer, 3);
+
+        httpserver_set_response_socket(&response, client);
+        httpserver_set_response_status(&response, 200);
+
+        httpserver_send_response(&response);
+
+        return;
+      }
+
+      free(tokens);
+      free(pairs);
+
+      goto bad_request;
+    }
+
+    printf("[main]: Update player with method \"%s\" not allowed.\n", request->method);
   }
 
   else {
@@ -915,17 +961,17 @@ int ws_callback(struct csocket_server_client *client, struct frequenc_ws_frame *
 
 void disconnect_callback(struct csocket_server_client *client, int socket_index) {
   /* TODO: Add resuming mechanism; set client_auth->disconnected to true */
-  char socketStr[4];
-  snprintf(socketStr, sizeof(socketStr), "%d", csocket_server_client_get_id(client));
+  char socket_str[4];
+  snprintf(socket_str, sizeof(socket_str), "%d", csocket_server_client_get_id(client));
 
   char *session_id = httpserver_get_socket_data(&server, socket_index);
 
   if (session_id == NULL) return;
 
   cthreads_mutex_lock(&mutex);
-  struct tablec_bucket *bucket2 = tablec_get(&clients, session_id);
+  struct tablec_bucket *session_bucket = tablec_get(&clients, session_id);
 
-  if (bucket2->value == NULL) {
+  if (session_bucket->value == NULL) {
     printf("[main]: Client disconnected not properly. Report it.\n - Reason: Can't find saved session_id on hashtable.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(client), socket_index, cthreads_thread_id(cthreads_thread_self()));
 
     exit(1);
@@ -933,10 +979,10 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
     return;
   }
 
-  tablec_del(&clients, bucket2->key);
+  tablec_del(&clients, session_bucket->key);
   cthreads_mutex_unlock(&mutex);
 
-  free(bucket2->value);
+  free(session_bucket->value);
   free(session_id);
 
   return;
@@ -968,6 +1014,10 @@ void handle_sig_int(int sig) {
 }
 
 int main(void) {
+  #if HARDCODED_SESSION_ID
+    printf("[main]: Hardcoded session id macro found. ONLY use this for development. Do not connect more than one client with this macro enabled.\n");
+  #endif
+
   #if !__linux__ && !_WIN32 && ALLOW_UNSECURE_RANDOM
     printf("[main]: Warning! Using unsecure random seed. If your system supports /dev/urandom, disable ALLOW_UNSECURE_RANDOM and compile again.\n");
   #endif

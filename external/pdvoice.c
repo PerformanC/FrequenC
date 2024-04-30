@@ -19,8 +19,8 @@
 #define PDVOICE_DISCORD_GW_VERSION 4
 
 void pdvoice_init(struct pdvoice *connection) {
-  connection->ws_connection_info = malloc(sizeof(struct pdvoice_ws_connection_info));
-  connection->udp_connection_info = malloc(sizeof(struct pdvoice_udp_connection_info));
+  connection->ws_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_ws_connection_info));
+  connection->udp_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_udp_connection_info));
 }
 
 void pdvoice_update_state(struct pdvoice *connection, char *session_id) {
@@ -60,13 +60,8 @@ void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_fr
   printf("[pdvoice]: Connection closed. Handling isn't done yet.\n");
 }
 
-struct _pdvoice_thread_data {
-  struct pdvoice *connection;
-  struct httpclient_response *client;
-};
-
 void *_pdvoice_udp(void *data) {
-  struct _pdvoice_thread_data *thread_data = data;
+  struct _pdvoice_udp_thread_data *thread_data = data;
 
   int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
   if (udp_socket == -1) {
@@ -194,14 +189,8 @@ void *_pdvoice_udp(void *data) {
   return NULL;
 }
 
-struct pdvoice_hb_thread_data {
-  struct pdvoice *connection;
-  struct httpclient_response *client;
-  int interval;
-};
-
 void *_pdvoice_hb_interval(void *data) {
-  struct pdvoice_hb_thread_data *thread_data = data;
+  struct _pdvoice_hb_thread_data *thread_data = data;
 
   char *buffer = "{\"op\":3,\"d\":null}";
 
@@ -274,11 +263,11 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
 
       struct cthreads_args args;
 
-      struct _pdvoice_thread_data *thread_data = frequenc_safe_malloc(sizeof(struct _pdvoice_thread_data));
-      thread_data->connection = connection;
-      thread_data->client = client;
+      connection->udp_thread_data = frequenc_safe_malloc(sizeof(struct _pdvoice_udp_thread_data));
+      connection->udp_thread_data->connection = connection;
+      connection->udp_thread_data->client = client;
 
-      cthreads_thread_create(&connection->thread, NULL, _pdvoice_udp, thread_data, &args);
+      cthreads_thread_create(&connection->udp_thread, NULL, _pdvoice_udp, connection->udp_thread_data, &args);
 
       break;
     }
@@ -289,13 +278,13 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
       char interval[32];
       frequenc_fast_copy(message->buffer + interval_pair->v.pos, interval, interval_pair->v.len);
 
-      struct pdvoice_hb_thread_data *thread_data = frequenc_safe_malloc(sizeof(struct pdvoice_hb_thread_data));
-      thread_data->connection = connection;
-      thread_data->client = client;
-      thread_data->interval = atoi(interval);
+      connection->hb_thread_data = frequenc_safe_malloc(sizeof(struct _pdvoice_hb_thread_data));
+      connection->hb_thread_data->connection = connection;
+      connection->hb_thread_data->client = client;
+      connection->hb_thread_data->interval = atoi(interval);
 
       struct cthreads_args args;
-      cthreads_thread_create(&connection->thread, NULL, _pdvoice_hb_interval, thread_data, &args);
+      cthreads_thread_create(&connection->hb_thread, NULL, _pdvoice_hb_interval, connection->hb_thread_data, &args);
 
       break;
     }
@@ -352,8 +341,8 @@ void *_pdvoice_connect(void *data) {
     .on_message = _pdvoice_on_message
   };
 
-  struct httpclient_response response;
-  if (frequenc_connect_ws_client(&params, &response, &cbs) == -1) {
+  connection->httpclient = frequenc_safe_malloc(sizeof(struct httpclient_response));
+  if (frequenc_connect_ws_client(&params, connection->httpclient, &cbs) == -1) {
     printf("[pdvoice]: Failed to connect to Discord voice gateway.\n");
 
     return NULL;
@@ -365,7 +354,23 @@ void *_pdvoice_connect(void *data) {
 int pdvoice_connect(struct pdvoice *connection) {
   struct cthreads_args args;
 
-  cthreads_thread_create(&connection->thread, NULL, _pdvoice_connect, connection, &args);
+  cthreads_thread_create(&connection->ws_thread, NULL, _pdvoice_connect, connection, &args);
 
   return 0;
+}
+
+void pdvoice_free(struct pdvoice *connection) {
+  cthreads_thread_cancel(connection->udp_thread);
+  cthreads_thread_cancel(connection->hb_thread);
+  cthreads_thread_cancel(connection->ws_thread);
+
+  free(connection->udp_thread_data);
+  free(connection->hb_thread_data);
+
+  free(connection->ws_connection_info);
+
+  free(connection->udp_connection_info->ip);
+  free(connection->udp_connection_info);
+
+  /* TODO: add close for the websocket */
 }

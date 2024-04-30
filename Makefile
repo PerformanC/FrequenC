@@ -1,6 +1,6 @@
 CC = clang
 
-# Comment the option below if you want to use experimental mode for saving memory
+# Comment this line out if you are having problems with it.
 TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY = 1
 
 # CSOCKET_SECURE = 1
@@ -10,13 +10,16 @@ PORT = 8888
 AUTHORIZATION = "youshallnotpass"
 ALLOW_UNSECURE_RANDOM = 0
 
+# Development
+HARDCODED_SESSION_ID = 0
+
 SRC_DIR = lib external sources
 OBJ_DIR = obj
 
 CVERSION = -std=c99
 CFLAGS ?= -Ofast -march=native -fno-signed-zeros -fno-trapping-math -funroll-loops  
 LDFLAGS ?= -Iinclude -Iexternal -Isources -pthread
-OPTIONS = -DPORT=$(PORT) -DAUTHORIZATION=\"$(AUTHORIZATION)\" -DALLOW_UNSECURE_RANDOM=$(ALLOW_UNSECURE_RANDOM) $(if $(CSOCKET_SECURE),-lssl -lcrypto -DCSOCKET_SECURE -DCSOCKET_KEY=\"$(CSOCKET_KEY)\" -DCSOCKET_CERT=\"$(CSOCKET_CERT)\",) $(if $(TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY),-DTCPLIMITS_EXPERIMENTAL_SAVE_MEMORY,)
+OPTIONS = -DPORT=$(PORT) -DAUTHORIZATION=\"$(AUTHORIZATION)\" -DALLOW_UNSECURE_RANDOM=$(ALLOW_UNSECURE_RANDOM) $(if $(CSOCKET_SECURE),-lssl -lcrypto -DCSOCKET_SECURE -DCSOCKET_KEY=\"$(CSOCKET_KEY)\" -DCSOCKET_CERT=\"$(CSOCKET_CERT)\",) $(if $(TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY),-DTCPLIMITS_EXPERIMENTAL_SAVE_MEMORY,) -DHARDCODED_SESSION_ID=$(HARDCODED_SESSION_ID)
 CHECK_FLAGS = -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow 
 
 SRCS = $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c))
@@ -36,6 +39,9 @@ $(OBJ_DIR)/%.o: sources/%.c | $(OBJ_DIR)
 
 $(OBJ_DIR):
 	mkdir -p $@
+
+debug: CFLAGS += -g
+debug: FrequenC
 
 .PHONY: clean
 clean:

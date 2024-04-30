@@ -69,6 +69,14 @@ unsigned int frequenc_safe_seeding(void) {
 }
 
 char *frequenc_generate_session_id(char *result) {
+  #if HARDCODED_SESSION_ID
+    frequenc_fast_copy("FrequenC_Develop", result, 17);
+
+    result[16] = '\0';
+
+    return result;
+  #endif
+
   char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
   srand(frequenc_safe_seeding());
