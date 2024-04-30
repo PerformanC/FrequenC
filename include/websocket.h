@@ -15,6 +15,7 @@ struct frequenc_ws_frame {
   int fin;
   char *buffer;
   size_t payload_length;
+  unsigned short close_code;
 };
 
 struct frequenc_ws_message {

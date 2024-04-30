@@ -303,15 +303,15 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
         /* TODO: how portable is __bswap_16? */
         #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
           uint8_t *close_code_ptr = (uint8_t *)&header.buffer[0];
-          unsigned short close_code = (close_code_ptr[0] << 8) | close_code_ptr[1];
+          header.close_code = (close_code_ptr[0] << 8) | close_code_ptr[1];
         #else
           uint8_t *close_code_ptr = (uint8_t *)&buffer[1];
-          unsigned short close_code = (close_code_ptr[1] << 8) | close_code_ptr[0];
+          header.close_code = (close_code_ptr[1] << 8) | close_code_ptr[0];
         #endif
 
         header.buffer += 2;
 
-        printf("[websocket]: Connection closed with code %d\n", close_code);
+        printf("[websocket]: Connection closed with code %d\n", header.close_code);
 
         cbs->on_close(response, &header, cbs->user_data);
 

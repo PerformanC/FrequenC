@@ -55,9 +55,13 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
 }
 
 void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
-  (void)client; (void) message; (void) user_data;
+  (void)client;
 
-  printf("[pdvoice]: Connection closed. Handling isn't done yet.\n");
+  struct pdvoice *connection = user_data;
+
+  printf("[pdvoice]: Connecting with Discord voice gateway closed: %d\n", message->close_code);
+
+  pdvoice_free(connection);
 }
 
 void *_pdvoice_udp(void *data) {
