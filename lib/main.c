@@ -143,7 +143,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct tablec_bucket *selected_client;
 
     cthreads_mutex_lock(&mutex);
+    /* unreachable if as of current state (no resuming support) */
     if (session_id != NULL && (selected_client = tablec_get(&clients, session_id->value)) != NULL && ((struct client_authorization *)selected_client->value)->disconnected) {
+      /* TODO: disconnect if user-id mismatches with one in the hashtable */
       cthreads_mutex_unlock(&mutex);
 
       struct client_authorization *client_auth = selected_client->value;
@@ -151,7 +153,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       client_auth->user_id = user_id->value;
       client_auth->client = client;
 
-      char payload[1024];
+      char payload[45 + 16 + 1];
       int payload_length = snprintf(payload, sizeof(payload),
         "{"
           "\"op\":\"ready\","
@@ -686,7 +688,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     struct tstr_string_token guild_id;
-    tstr_find_between(&guild_id, request->path, "/players/", session_id.end, "\0", 0);
+    tstr_find_between(&guild_id, request->path, "/players/", session_id.end, NULL, 0);
 
     if (guild_id.start == 0 || guild_id.end == 0) {
       printf("[main]: No guild ID found.\n");
@@ -902,14 +904,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   }
 
   else {
-    struct httpserver_response notFoundResponse;
+    struct httpserver_response not_found_response;
     struct httpserver_header headers_buffer[3];
-    httpserver_init_response(&notFoundResponse, headers_buffer, 2);
+    httpserver_init_response(&not_found_response, headers_buffer, 2);
 
-    httpserver_set_response_socket(&notFoundResponse, client);
-    httpserver_set_response_status(&notFoundResponse, 404);
+    httpserver_set_response_socket(&not_found_response, client);
+    httpserver_set_response_status(&not_found_response, 404);
 
-    httpserver_send_response(&notFoundResponse);
+    httpserver_send_response(&not_found_response);
   }
 
   return;
@@ -979,17 +981,44 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
     return;
   }
 
+  struct client_authorization *client_auth = session_bucket->value;
+
+  for (size_t i = 0; i < client_auth->guilds.capacity; i++) {
+    struct tablec_bucket bucket = client_auth->guilds.buckets[i];
+
+    if (bucket.key == NULL) continue;
+
+    struct client_guild_information *guild_info = bucket.value;
+
+    if (guild_info->vc_connection != NULL && guild_info->vc_connection->httpclient != NULL) {
+      pdvoice_free(guild_info->vc_connection);
+      free(guild_info->vc_connection->guild_id);
+      free(guild_info->vc_connection);
+    }
+
+    if (guild_info->vc_info != NULL) {
+      free(guild_info->vc_info->token);
+      free(guild_info->vc_info->endpoint);
+      free(guild_info->vc_info->session_id);
+      free(guild_info->vc_info);
+    }
+
+    free(bucket.value);
+  }
+
+  free(client_auth->guilds.buckets);
+
   tablec_del(&clients, session_bucket->key);
   cthreads_mutex_unlock(&mutex);
 
-  free(session_bucket->value);
+  free(client_auth);
   free(session_id);
 
   return;
 }
 
-void handle_sig_int(int sig) {
-  (void) sig;
+void handle_sig_int(int signal) {
+  (void) signal;
 
   printf("\n[main]: Stopping server. Checking the hashtable...\n");
 
@@ -999,7 +1028,37 @@ void handle_sig_int(int sig) {
 
     if (bucket.key == NULL) continue;
 
+    struct client_authorization *client_auth = bucket.value;
+
+    for (size_t j = 0; j < client_auth->guilds.capacity; j++) {
+      struct tablec_bucket guild_bucket = client_auth->guilds.buckets[j];
+
+      if (guild_bucket.key == NULL) continue;
+
+      struct client_guild_information *guild_info = guild_bucket.value;
+
+      if (guild_info->vc_connection != NULL && guild_info->vc_connection->httpclient != NULL) {
+        pdvoice_free(guild_info->vc_connection);
+        free(guild_info->vc_connection->guild_id);
+        free(guild_info->vc_connection);
+      }
+
+      if (guild_info->vc_info != NULL) {
+        free(guild_info->vc_info->token);
+        free(guild_info->vc_info->endpoint);
+        free(guild_info->vc_info->session_id);
+        free(guild_info->vc_info);
+      }
+
+      free(guild_bucket.value);
+    }
+
     printf("[main]: Found data in the hashtable.\n - Key: %s\n - Value: %p\n", bucket.key, bucket.value);
+
+    free(client_auth->guilds.buckets);
+
+    free(bucket.key);
+    free(bucket.value);
 
     detected = true;
   }

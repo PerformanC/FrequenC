@@ -20,7 +20,7 @@ void tstr_find_between(struct tstr_string_token *result, const char *str, const 
 
   if (start_index != 0) i = start_index;
 
-  while (len == 0 ? str[i] != '\0' : i < len) {
+  do {
     if (start == NULL) {
       result->start = i;
 
@@ -71,7 +71,7 @@ void tstr_find_between(struct tstr_string_token *result, const char *str, const 
     }
 
     i++;
-  }
+  } while (len == 0 ? str[i - 1] != '\0' : i < len);
 
   if (result->end == 0 && str[i] == '\0') result->end = i;
 }

@@ -20,7 +20,9 @@
 
 void pdvoice_init(struct pdvoice *connection) {
   connection->ws_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_ws_connection_info));
-  connection->udp_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_udp_connection_info));
+  connection->udp_connection_info = NULL;
+  connection->udp_thread_data = NULL;
+  connection->hb_thread_data = NULL;
 }
 
 void pdvoice_update_state(struct pdvoice *connection, char *session_id) {
@@ -49,7 +51,7 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
 
   pjsonb_end(&jsonb);
 
-  frequenc_send_text_ws_client(client, jsonb.string);
+  frequenc_send_text_ws_client(client, jsonb.string, jsonb.position);
 
   pjsonb_free(&jsonb);
 }
@@ -83,6 +85,10 @@ void *_pdvoice_udp(void *data) {
 
   struct sockaddr_in udp_server;
   udp_server.sin_family = AF_INET;
+  udp_server.sin_addr = (struct in_addr){
+    INADDR_ANY
+  };
+  udp_server.sin_port = htons(thread_data->connection->udp_connection_info->port);
 
   if (bind(udp_socket, (struct sockaddr *)&udp_server, sizeof(udp_server)) == -1) {
     printf("[pdvoice]: Failed to bind UDP socket.\n");
@@ -90,7 +96,7 @@ void *_pdvoice_udp(void *data) {
     return NULL;
   }
 
-  char discovery_buffer[74];
+  unsigned char discovery_buffer[74];
 
   #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     discovery_buffer[0] = 1 >> 8;
@@ -127,7 +133,7 @@ void *_pdvoice_udp(void *data) {
 
   int sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
   if (sent == -1) {
-    printf("[pdvoice]: Failed to send discovery packet to UDP socket.\n");
+    perror("[pdvoice]: Failed to send discovery packet to UDP socket");
 
     return NULL;
   }
@@ -138,7 +144,7 @@ void *_pdvoice_udp(void *data) {
 
   int received = recvfrom(udp_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&udp_client, &udp_client_length);
   if (received == -1) {
-    printf("[pdvoice]: Failed to receive from UDP socket.\n");
+    perror("[pdvoice]: Failed to receive from UDP socket");
 
     return NULL;
   }
@@ -157,13 +163,8 @@ void *_pdvoice_udp(void *data) {
     return NULL;
   }
 
-  char ip[16];
-  int i = 8;
-  while (buffer[i] != '\0') {
-    ip[i - 8] = buffer[i];
-
-    i++;
-  }
+  char ip[(3 + 1 + 3 + 1 + 3) + 1];
+  frequenc_fast_copy(buffer + 8, ip, 16);
 
   #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     uint8_t *port_ptr = (uint8_t *)&buffer[received - 2];
@@ -175,14 +176,14 @@ void *_pdvoice_udp(void *data) {
 
   printf("[pdvoice]: Realized IP discovery: %.*s.xxx:%d\n", 5, ip, port);
 
-  snprintf(buffer, sizeof(buffer), "{\"op\":1,\"d\":{\"protocol\":\"udp\",\"data\":{\"address\":\"%s\",\"port\":%d,\"mode\":\"xsalsa20_poly1305_lite\"}}}", ip, port);
+  int buffer_length = snprintf(buffer, sizeof(buffer), "{\"op\":1,\"d\":{\"protocol\":\"udp\",\"data\":{\"address\":\"%s\",\"port\":%d,\"mode\":\"xsalsa20_poly1305_lite\"}}}", ip, port);
 
-  frequenc_send_text_ws_client(thread_data->client, buffer);
+  frequenc_send_text_ws_client(thread_data->client, buffer, buffer_length);
 
   while (1) {
     received = recvfrom(udp_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&udp_client, &udp_client_length);
     if (received == -1) {
-      printf("[pdvoice]: Failed to receive from UDP socket.\n");
+      perror("[pdvoice]: Failed to receive from UDP socket");
 
       return NULL;
     }
@@ -201,7 +202,7 @@ void *_pdvoice_hb_interval(void *data) {
   while (1) {
     frequenc_sleep(thread_data->interval);
 
-    frequenc_send_text_ws_client(thread_data->client, buffer);
+    frequenc_send_text_ws_client(thread_data->client, buffer, sizeof(buffer) - 1);
   }
 
   return NULL;
@@ -209,6 +210,8 @@ void *_pdvoice_hb_interval(void *data) {
 
 void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
   struct pdvoice *connection = user_data;
+
+  printf("[pdvoice]: Received message from Discord voice gateway: %.*s\n", (int)message->payload_length, message->buffer);
 
   jsmn_parser parser;
   jsmntok_t *tokens = NULL;
@@ -241,8 +244,15 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
 
   jsmnf_pair *op_pair = jsmnf_find(pairs, message->buffer, "op", sizeof("op") - 1);
 
-  switch (message->buffer[op_pair->v.pos]) {
-    case '2': {
+  char op_str[4];
+  frequenc_fast_copy(message->buffer + op_pair->v.pos, op_str, op_pair->v.len);
+
+  int op = atoi(op_str);
+
+  switch (op) {
+    case 2: {
+      connection->udp_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_udp_connection_info));
+
       char *path[] = { "d", "ssrc", NULL };
       jsmnf_pair *ssrc_pair = jsmnf_find_path(pairs, message->buffer, path, 2);
 
@@ -272,10 +282,11 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
       connection->udp_thread_data->client = client;
 
       cthreads_thread_create(&connection->udp_thread, NULL, _pdvoice_udp, connection->udp_thread_data, &args);
+      cthreads_thread_detach(connection->udp_thread);
 
       break;
     }
-    case '8': {
+    case 8: {
       char *path[] = { "d", "heartbeat_interval", NULL };
       jsmnf_pair *interval_pair = jsmnf_find_path(pairs, message->buffer, path, 2);
 
@@ -289,8 +300,12 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
 
       struct cthreads_args args;
       cthreads_thread_create(&connection->hb_thread, NULL, _pdvoice_hb_interval, connection->hb_thread_data, &args);
+      cthreads_thread_detach(connection->hb_thread);
 
       break;
+    }
+    case 20: {
+      // TODO
     }
   }
 
@@ -359,22 +374,46 @@ int pdvoice_connect(struct pdvoice *connection) {
   struct cthreads_args args;
 
   cthreads_thread_create(&connection->ws_thread, NULL, _pdvoice_connect, connection, &args);
+  cthreads_thread_detach(connection->ws_thread);
 
   return 0;
 }
 
 void pdvoice_free(struct pdvoice *connection) {
-  cthreads_thread_cancel(connection->udp_thread);
-  cthreads_thread_cancel(connection->hb_thread);
-  cthreads_thread_cancel(connection->ws_thread);
+  if (connection->udp_thread_data) {
+    cthreads_thread_cancel(connection->udp_thread);
 
-  free(connection->udp_thread_data);
-  free(connection->hb_thread_data);
+    free(connection->udp_thread_data);
+    connection->udp_thread_data = NULL;
+  }
+  if (connection->hb_thread_data) {
+    cthreads_thread_cancel(connection->hb_thread);
 
-  free(connection->ws_connection_info);
+    free(connection->hb_thread_data);
+    connection->hb_thread_data = NULL;
+  }
 
-  free(connection->udp_connection_info->ip);
-  free(connection->udp_connection_info);
+  if ((void *)&connection->ws_thread != NULL) {
+    cthreads_thread_cancel(connection->ws_thread);
+  }
+
+  // frequenc_cleanup(connection->ws_connection_info);
+  if (connection->ws_connection_info != NULL) {
+    free(connection->ws_connection_info);
+    connection->ws_connection_info = NULL;
+  }
+
+  if (connection->udp_connection_info != NULL) {
+    frequenc_cleanup(connection->udp_connection_info->ip);
+
+    free(connection->udp_connection_info);
+    connection->udp_connection_info = NULL;
+  }
+
+  if (connection->httpclient != NULL) {
+    httpclient_shutdown(connection->httpclient);
+    free(connection->httpclient);
+  }
 
   /* TODO: add close for the websocket */
 }

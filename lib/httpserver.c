@@ -49,6 +49,7 @@ void httpserver_start_server(struct httpserver *server) {
 }
 
 void httpserver_stop_server(struct httpserver *server) {
+  cthreads_thread_cancel(server->thread);
   csocket_server_close(&server->server);
   free(server->sockets);
   free(server->available_sockets);
@@ -201,14 +202,12 @@ void httpserver_handle_request(struct httpserver *server, void (*callback)(struc
     args->websocket_callback = websocket_callback;
     args->disconnect_callback = disconnect_callback;
 
-    struct cthreads_thread thread;
     struct cthreads_args cargs;
-    cthreads_thread_create(&thread, NULL, listen_messages, args, &cargs);
+    cthreads_thread_create(&server->thread, NULL, listen_messages, args, &cargs);
+    cthreads_thread_detach(server->thread);
 
     server->sockets_length++;
   }
-
-  printf("[httpserver]: Accept failed: %d\n", socket);
 
   perror("[httpserver]: Accept failed");
 }

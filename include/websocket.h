@@ -47,6 +47,6 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response);
 
 int frequenc_connect_ws_client(struct httpclient_request_params *request, struct httpclient_response *response, struct frequenc_ws_cbs *cbs);
 
-int frequenc_send_text_ws_client(struct httpclient_response *response, char *message);
+int frequenc_send_text_ws_client(struct httpclient_response *response, char *message, size_t message_length);
 
 #endif

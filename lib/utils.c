@@ -98,7 +98,7 @@ void frequenc_fast_copy(const char *src, char *dest, size_t size) {
 }
 
 void frequenc_cleanup(void *pointer) {
-  if (pointer) {
+  if (pointer != NULL) {
     free(pointer);
 
     pointer = NULL;

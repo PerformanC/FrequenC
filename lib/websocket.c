@@ -350,9 +350,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   }
 }
 
-int frequenc_send_text_ws_client(struct httpclient_response *response, char *message) {
-  size_t message_length = strlen(message);
-
+int frequenc_send_text_ws_client(struct httpclient_response *response, char *message, size_t message_length) {
   int payload_start_index = 2;
   size_t payload_length = message_length;
 

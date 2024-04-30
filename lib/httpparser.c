@@ -238,7 +238,7 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
 
   http_response->headers_length = i;
 
-  struct httpparser_header *transfer_encoding_header = _httpparser_get_response_header(http_response, "Transfer-Encoding");
+  struct httpparser_header *transfer_encoding_header = _httpparser_get_response_header(http_response, "transfer-encoding");
 
   if (transfer_encoding_header != NULL && strcmp(transfer_encoding_header->value, "chunked") == 0) {
     const char *body_and_length = request + headers_end.end + 4;

@@ -2,19 +2,22 @@
 #define HTTPSERVER_H
 
 #include "csocket-server.h"
+#include "cthreads.h"
 
 #include "websocket.h"
 #include "httpparser.h"
 #include "types.h"
 
 struct httpserver {
-  int *available_sockets;
   struct csocket_server server;
+  struct httpserver_client *sockets;
+  struct cthreads_thread thread;
+  int *available_sockets;
   size_t sockets_capacity;
   size_t sockets_length;
-  struct httpserver_client *sockets;
   void (*handler)(int, char*);
 };
+
 struct httpserver_header {
   char *key;
   char *value;
