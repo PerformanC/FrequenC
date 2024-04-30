@@ -12,8 +12,12 @@ The FrequenC API is the main way of communication between the client and the ser
   - [Encoding track](#encoding-track)
   - [Encoding tracks](#encoding-tracks)
   - [Loading tracks](#loading-tracks)
+  - [Update player](#update-player)
   - [Connecting to the websocket](#connecting-to-the-websocket)
   - [LavaLink compability table](#lavalink-compability-table)
+
+> [!IMPORTANT]
+> This is a beta version of the API.
 
 > [!NOTE]
 > All endpoints require authentication.
@@ -23,9 +27,6 @@ The FrequenC API is the main way of communication between the client and the ser
 
 > [!WARNING]
 > We reserve the right of breaking changes without major version bumps if they are said to be necessary in this documentation.
-
-> [!WARNING]
-> This is a beta version of the API.
 
 ## Information about server
 
@@ -249,6 +250,30 @@ Authorization: <password>
 ```
 
 </details>
+
+## Update player
+
+This endpoint allows clients to update information about the player, the main and only way of allowing FrequenC to connect to the Discord voice servers.
+
+```http
+PATCH /v1/sessions/xxx/players/xxx
+Authorization: <password>
+
+{
+  "voice": {
+    "endpoint": "brazil1001.discord.media",
+    "session_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "token": "xxxxxxxxxxxxxxxx"
+  }
+}
+```
+
+```http
+HTTP/1.1 200 OK
+```
+
+> [!WARNING]
+> The `endpoint`, `session_id` and `token` are Discord voice server specific, and should not be shared with anyone. However they're only temporarily confidential.
 
 ## Connecting to the websocket
 
