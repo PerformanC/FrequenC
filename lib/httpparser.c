@@ -147,8 +147,8 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 }
 
 void httpparser_free_request(struct httpparser_request *http_request) {
-  if (http_request->path != NULL) free(http_request->path);
-  if (http_request->body != NULL) free(http_request->body);
+  frequenc_cleanup(http_request->path);
+  frequenc_cleanup(http_request->body);
 }
 
 void httpparser_init_response(struct httpparser_response *http_response, struct httpparser_header *buffer, int length) {

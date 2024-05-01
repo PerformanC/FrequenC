@@ -26,6 +26,8 @@ void *frequenc_safe_malloc(size_t size);
 
 void *frequenc_safe_realloc(void *pointer, size_t size);
 
+char *frequenc_strdup(const char *str, size_t size);
+
 int frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, char *result, size_t size);
 
 int frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, char *result, size_t size);

@@ -11,7 +11,6 @@
 struct httpserver {
   struct csocket_server server;
   struct httpserver_client *sockets;
-  struct cthreads_thread thread;
   int *available_sockets;
   size_t sockets_capacity;
   size_t sockets_length;
@@ -32,7 +31,18 @@ struct httpserver_response {
   char *body;
 };
 
+struct _httpserver_connection_data {
+  struct csocket_server_client client;
+  int socket_index;
+  struct httpserver *server;
+  void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request);
+  int (*websocket_callback)(struct csocket_server_client *client, int socket_index, struct frequenc_ws_frame *frame_header);
+  void (*disconnect_callback)(struct csocket_server_client *client, int socket_index);
+};
+
 struct httpserver_client {
+  struct cthreads_thread thread;
+  struct _httpserver_connection_data *thread_data;
   int socket;
   bool upgraded;
   void *data;
@@ -42,9 +52,9 @@ void httpserver_start_server(struct httpserver *server);
 
 void httpserver_stop_server(struct httpserver *server);
 
-void httpserver_disconnect_client(struct csocket_server_client *client);
+void httpserver_disconnect_client(struct httpserver *server, struct csocket_server_client *client, int socket_index);
 
-void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, struct frequenc_ws_frame *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index));
+void httpserver_handle_request(struct httpserver *server, void (*callback)(struct csocket_server_client *client, int socket_index, struct httpparser_request *request), int (*websocket_callback)(struct csocket_server_client *client, int socket_index, struct frequenc_ws_frame *frame_header), void (*disconnect_callback)(struct csocket_server_client *client, int socket_index));
 
 void httpserver_set_socket_data(struct httpserver *server, int socket_index, void *data);
 

@@ -37,6 +37,7 @@ struct pdvoice {
   struct _pdvoice_udp_thread_data *udp_thread_data;
   struct _pdvoice_hb_thread_data *hb_thread_data;
   struct httpclient_response *httpclient;
+  struct cthreads_mutex *mutex;
   char *bot_id;
   char *guild_id;
 };

@@ -412,10 +412,7 @@ int httpclient_unsafe_request(struct httpclient_request_params *request, struct 
 }
 
 void httpclient_shutdown(struct httpclient_response *response) {
-  if (SSL_shutdown(response->ssl) == -1) {
-    perror("[https-client]: Failed to shutdown SSL connection");
-  }
-
+  SSL_shutdown(response->ssl);
   SSL_free(response->ssl);
   SSL_CTX_free(response->ctx);
   close(response->socket);

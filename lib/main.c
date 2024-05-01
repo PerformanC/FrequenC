@@ -1,5 +1,3 @@
-/* TODO: move guild buckets to inside of session structure */
-
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
@@ -220,24 +218,20 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     cthreads_mutex_lock(&mutex);
     if (tablec_set(&clients, gen_session_id, client_auth) == -1) {
-      cthreads_mutex_unlock(&mutex);
       printf("[main]: Hashtable is full, resizing.\n");
 
       struct tablec_ht old_clients = clients;
       size_t new_capacity = clients.capacity * 2;
       struct tablec_bucket *new_buckets = frequenc_safe_malloc(new_capacity * sizeof(struct tablec_bucket));
 
-      cthreads_mutex_lock(&mutex);
       if (tablec_resize(&clients, new_buckets, new_capacity) == -1) {
         printf("[main]: Hashtable resizing failed. Exiting.\n");
 
         exit(1);
       }
-      cthreads_mutex_unlock(&mutex);
 
       free(old_clients.buckets);
 
-      cthreads_mutex_lock(&mutex);
       tablec_set(&clients, gen_session_id, client_auth);
     }
     cthreads_mutex_unlock(&mutex);
@@ -699,6 +693,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     char guild_id_str[19 + 1];
     frequenc_fast_copy(request->path + guild_id.start, guild_id_str, guild_id.end - guild_id.start);
 
+    /* TODO: involve in a mutex session-wise */
     struct tablec_bucket *guild_bucket = tablec_get(&client_auth->guilds, guild_id_str);
     struct client_guild_information *guild_info = NULL;
 
@@ -753,30 +748,87 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       return;
     }
 
-    if (strcmp(request->method, "PATCH") == 0) {
+    else if (strcmp(request->method, "DELETE") == 0) {
       if (guild_bucket == NULL) {
-        if (tablec_full(&client_auth->guilds) == -1) {
-          struct tablec_bucket *old_guild_buckets = client_auth->guilds.buckets;
-          struct tablec_bucket *new_guild_buckets = frequenc_safe_malloc(sizeof(struct tablec_bucket) * client_auth->guilds.capacity * 2);
+        printf("[main]: Guild ID not found.\n");
 
-          cthreads_mutex_lock(&mutex);
-          if (tablec_resize(&client_auth->guilds, new_guild_buckets, client_auth->guilds.capacity * 2) == -1) {
-            cthreads_mutex_unlock(&mutex);
+        struct httpserver_response response;
+        struct httpserver_header headers_buffer[3];
+        httpserver_init_response(&response, headers_buffer, 3);
 
-            printf("[main]: Guilds hashtable resizing failed. Exiting.\n");
+        httpserver_set_response_socket(&response, client);
+        httpserver_set_response_status(&response, 404);
 
-            exit(1);
-          }
-          cthreads_mutex_unlock(&mutex);
+        httpserver_send_response(&response);
 
-          free(old_guild_buckets);
-        }
+        return;
+      }
+
+      /* Requires a copy of the structure to not loose memory addresses when deleting */
+      struct tablec_bucket deferenced_guild_bucket = *guild_bucket;
+
+      guild_info = guild_bucket->value;
+
+      if (guild_info->vc_connection != NULL) {
+        pdvoice_free(guild_info->vc_connection);
+        free(guild_info->vc_connection->guild_id);
+        free(guild_info->vc_connection);
+        guild_info->vc_connection = NULL;
+      }
+
+
+      if (guild_info->vc_info != NULL) {
+        free(guild_info->vc_info->token);
+        free(guild_info->vc_info->endpoint);
+        free(guild_info->vc_info->session_id);
+        free(guild_info->vc_info);
+        guild_info->vc_info = NULL;
+      }
+
+      tablec_del(&client_auth->guilds, guild_id_str);
+
+      free(deferenced_guild_bucket.value);
+      free(deferenced_guild_bucket.key);
+
+      struct httpserver_response response;
+      struct httpserver_header headers_buffer[3];
+      httpserver_init_response(&response, headers_buffer, 3);
+
+      httpserver_set_response_socket(&response, client);
+      httpserver_set_response_status(&response, 204);
+
+      httpserver_send_response(&response);
+
+      return;
+    }
+
+    else if (strcmp(request->method, "PATCH") == 0) {
+      if (guild_bucket == NULL) {
+        printf("[main]: Player not found, creating new player.\n");
 
         guild_info = frequenc_safe_malloc(sizeof(struct client_guild_information));
         guild_info->guild_id = strtol(guild_id_str, NULL, 10);
 
+        char *guild_id_str_alloced = frequenc_strdup(guild_id_str, 0);
+
         cthreads_mutex_lock(&mutex);
-        tablec_set(&client_auth->guilds, guild_id_str, guild_info);
+        if (tablec_set(&client_auth->guilds, guild_id_str_alloced, guild_info) == -1) {
+          printf("[main]: Hashtable is full, resizing.\n");
+
+          struct tablec_ht old_guilds = client_auth->guilds;
+          size_t new_capacity = client_auth->guilds.capacity * 2;
+          struct tablec_bucket *new_buckets = frequenc_safe_malloc(new_capacity * sizeof(struct tablec_bucket));
+
+          if (tablec_resize(&client_auth->guilds, new_buckets, new_capacity) == -1) {
+            printf("[main]: Hashtable resizing failed. Exiting.\n");
+
+            exit(1);
+          }
+
+          free(old_guilds.buckets);
+
+          tablec_set(&client_auth->guilds, guild_id_str_alloced, guild_info);
+        }
         cthreads_mutex_unlock(&mutex);
       } else {
         guild_info = guild_bucket->value;
@@ -865,13 +917,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
         printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
 
-        size_t guild_id_str_length = strlen(guild_id_str);
-        char *guild_id_str_alloced = frequenc_safe_malloc(guild_id_str_length + 1);
-        frequenc_fast_copy(guild_id_str, guild_id_str_alloced, guild_id_str_length);
-
         struct pdvoice *client_vc = frequenc_safe_malloc(sizeof(struct pdvoice));
         client_vc->bot_id = client_auth->user_id;
-        client_vc->guild_id = guild_id_str_alloced;
+        client_vc->guild_id = frequenc_strdup(guild_id_str, 0);
 
         pdvoice_init(client_vc);
 
@@ -943,11 +991,11 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
   }
 }
 
-int ws_callback(struct csocket_server_client *client, struct frequenc_ws_frame *ws_frame) {
+int ws_callback(struct csocket_server_client *client, int socket_index, struct frequenc_ws_frame *ws_frame) {
   printf("[main]: WS message: %d\n", csocket_server_client_get_id(client));
 
   if (ws_frame->opcode == 8) {
-    httpserver_disconnect_client(client);
+    httpserver_disconnect_client(&server, client, socket_index);
 
     return 1;
   }
@@ -984,16 +1032,17 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
   struct client_authorization *client_auth = session_bucket->value;
 
   for (size_t i = 0; i < client_auth->guilds.capacity; i++) {
-    struct tablec_bucket bucket = client_auth->guilds.buckets[i];
+    struct tablec_bucket *bucket = &client_auth->guilds.buckets[i];
 
-    if (bucket.key == NULL) continue;
+    if (bucket->key == NULL) continue;
 
-    struct client_guild_information *guild_info = bucket.value;
+    struct client_guild_information *guild_info = bucket->value;
 
-    if (guild_info->vc_connection != NULL && guild_info->vc_connection->httpclient != NULL) {
+    if (guild_info->vc_connection != NULL) {
       pdvoice_free(guild_info->vc_connection);
       free(guild_info->vc_connection->guild_id);
       free(guild_info->vc_connection);
+      guild_info->vc_connection = NULL;
     }
 
     if (guild_info->vc_info != NULL) {
@@ -1001,9 +1050,11 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
       free(guild_info->vc_info->endpoint);
       free(guild_info->vc_info->session_id);
       free(guild_info->vc_info);
+      guild_info->vc_info = NULL;
     }
 
-    free(bucket.value);
+    free(bucket->key);
+    free(bucket->value);
   }
 
   free(client_auth->guilds.buckets);
@@ -1037,10 +1088,11 @@ void handle_sig_int(int signal) {
 
       struct client_guild_information *guild_info = guild_bucket.value;
 
-      if (guild_info->vc_connection != NULL && guild_info->vc_connection->httpclient != NULL) {
+      if (guild_info->vc_connection != NULL) {
         pdvoice_free(guild_info->vc_connection);
         free(guild_info->vc_connection->guild_id);
         free(guild_info->vc_connection);
+        guild_info->vc_connection = NULL;
       }
 
       if (guild_info->vc_info != NULL) {
@@ -1048,8 +1100,10 @@ void handle_sig_int(int signal) {
         free(guild_info->vc_info->endpoint);
         free(guild_info->vc_info->session_id);
         free(guild_info->vc_info);
+        guild_info->vc_info = NULL;
       }
 
+      free(guild_bucket.key);
       free(guild_bucket.value);
     }
 

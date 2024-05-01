@@ -133,6 +133,14 @@ void *frequenc_safe_realloc(void *pointer, size_t size) {
   return newPtr;
 }
 
+char *frequenc_strdup(const char *str, size_t size) {
+  size_t len = size == 0 ? strlen(str) : size;
+  char *new_str = frequenc_safe_malloc(len + 1);
+  frequenc_fast_copy(str, new_str, len);
+
+  return new_str;
+}
+
 int frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, char *result, size_t size) {
   return snprintf(result, size,
     "{"

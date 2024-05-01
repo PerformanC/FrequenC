@@ -23,6 +23,8 @@ void pdvoice_init(struct pdvoice *connection) {
   connection->udp_connection_info = NULL;
   connection->udp_thread_data = NULL;
   connection->hb_thread_data = NULL;
+  connection->mutex = frequenc_safe_malloc(sizeof(struct cthreads_mutex));
+  cthreads_mutex_init(connection->mutex, NULL);
 }
 
 void pdvoice_update_state(struct pdvoice *connection, char *session_id) {
@@ -42,12 +44,16 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
 
   pjsonb_set_int(&jsonb, "op", 0);
 
+  cthreads_mutex_lock(connection->mutex);
+
   pjsonb_enter_object(&jsonb, "d");
   pjsonb_set_string(&jsonb, "server_id", connection->guild_id);
   pjsonb_set_string(&jsonb, "user_id", connection->bot_id);
   pjsonb_set_string(&jsonb, "token", connection->ws_connection_info->token);
   pjsonb_set_string(&jsonb, "session_id", connection->ws_connection_info->session_id);
   pjsonb_leave_object(&jsonb);
+
+  cthreads_mutex_unlock(connection->mutex);
 
   pjsonb_end(&jsonb);
 
@@ -61,7 +67,7 @@ void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_fr
 
   struct pdvoice *connection = user_data;
 
-  printf("[pdvoice]: Connecting with Discord voice gateway closed: %d\n", message->close_code);
+  printf("[pdvoice]: Connection with Discord voice gateway has been closed: %d\n", message->close_code);
 
   pdvoice_free(connection);
 }
@@ -88,7 +94,11 @@ void *_pdvoice_udp(void *data) {
   udp_server.sin_addr = (struct in_addr){
     INADDR_ANY
   };
+  cthreads_mutex_lock(thread_data->connection->mutex);
+
   udp_server.sin_port = htons(thread_data->connection->udp_connection_info->port);
+
+  cthreads_mutex_unlock(thread_data->connection->mutex);
 
   if (bind(udp_socket, (struct sockaddr *)&udp_server, sizeof(udp_server)) == -1) {
     printf("[pdvoice]: Failed to bind UDP socket.\n");
@@ -114,6 +124,8 @@ void *_pdvoice_udp(void *data) {
     discovery_buffer[3] = 70 >> 8;
   #endif
 
+  cthreads_mutex_lock(thread_data->connection->mutex);
+
   #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     discovery_buffer[4] = thread_data->connection->udp_connection_info->ssrc >> 24;
     discovery_buffer[5] = thread_data->connection->udp_connection_info->ssrc >> 16;
@@ -130,6 +142,8 @@ void *_pdvoice_udp(void *data) {
   destination.sin_family = AF_INET;
   destination.sin_port = htons(thread_data->connection->udp_connection_info->port);
   destination.sin_addr.s_addr = inet_addr(thread_data->connection->udp_connection_info->ip);
+
+  cthreads_mutex_unlock(thread_data->connection->mutex);
 
   int sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
   if (sent == -1) {
@@ -174,11 +188,15 @@ void *_pdvoice_udp(void *data) {
     int port = (port_ptr[1] << 8) | port_ptr[0];
   #endif
 
-  printf("[pdvoice]: Realized IP discovery: %.*s.xxx:%d\n", 5, ip, port);
+  printf("[pdvoice]: Realized IP discovery: %.*s.xxx:%d\n", 6, ip, port);
 
   int buffer_length = snprintf(buffer, sizeof(buffer), "{\"op\":1,\"d\":{\"protocol\":\"udp\",\"data\":{\"address\":\"%s\",\"port\":%d,\"mode\":\"xsalsa20_poly1305_lite\"}}}", ip, port);
 
+  cthreads_mutex_lock(thread_data->connection->mutex);
+
   frequenc_send_text_ws_client(thread_data->client, buffer, buffer_length);
+
+  cthreads_mutex_unlock(thread_data->connection->mutex);
 
   while (1) {
     received = recvfrom(udp_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&udp_client, &udp_client_length);
@@ -202,7 +220,11 @@ void *_pdvoice_hb_interval(void *data) {
   while (1) {
     frequenc_sleep(thread_data->interval);
 
+    cthreads_mutex_lock(thread_data->connection->mutex);
+
     frequenc_send_text_ws_client(thread_data->client, buffer, sizeof(buffer) - 1);
+
+    cthreads_mutex_unlock(thread_data->connection->mutex);
   }
 
   return NULL;
@@ -251,6 +273,8 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
 
   switch (op) {
     case 2: {
+      cthreads_mutex_lock(connection->mutex);
+
       connection->udp_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_udp_connection_info));
 
       char *path[] = { "d", "ssrc", NULL };
@@ -284,6 +308,8 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
       cthreads_thread_create(&connection->udp_thread, NULL, _pdvoice_udp, connection->udp_thread_data, &args);
       cthreads_thread_detach(connection->udp_thread);
 
+      cthreads_mutex_unlock(connection->mutex);
+
       break;
     }
     case 8: {
@@ -293,6 +319,8 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
       char interval[32];
       frequenc_fast_copy(message->buffer + interval_pair->v.pos, interval, interval_pair->v.len);
 
+      cthreads_mutex_lock(connection->mutex);
+
       connection->hb_thread_data = frequenc_safe_malloc(sizeof(struct _pdvoice_hb_thread_data));
       connection->hb_thread_data->connection = connection;
       connection->hb_thread_data->client = client;
@@ -301,6 +329,8 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
       struct cthreads_args args;
       cthreads_thread_create(&connection->hb_thread, NULL, _pdvoice_hb_interval, connection->hb_thread_data, &args);
       cthreads_thread_detach(connection->hb_thread);
+
+      cthreads_mutex_unlock(connection->mutex);
 
       break;
     }
@@ -380,6 +410,12 @@ int pdvoice_connect(struct pdvoice *connection) {
 }
 
 void pdvoice_free(struct pdvoice *connection) {
+  if (connection->mutex == NULL || cthreads_mutex_trylock(connection->mutex) == -1) {
+    printf("[pdvoice]: Failed to lock mutex.\n");
+
+    return;
+  }
+
   if (connection->udp_thread_data) {
     cthreads_thread_cancel(connection->udp_thread);
 
@@ -397,7 +433,6 @@ void pdvoice_free(struct pdvoice *connection) {
     cthreads_thread_cancel(connection->ws_thread);
   }
 
-  // frequenc_cleanup(connection->ws_connection_info);
   if (connection->ws_connection_info != NULL) {
     free(connection->ws_connection_info);
     connection->ws_connection_info = NULL;
@@ -416,4 +451,8 @@ void pdvoice_free(struct pdvoice *connection) {
   }
 
   /* TODO: add close for the websocket */
+
+  cthreads_mutex_unlock(connection->mutex);
+  cthreads_mutex_destroy(connection->mutex);
+  frequenc_cleanup(connection->mutex);
 }

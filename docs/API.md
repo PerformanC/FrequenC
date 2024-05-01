@@ -13,6 +13,8 @@ The FrequenC API is the main way of communication between the client and the ser
   - [Encoding tracks](#encoding-tracks)
   - [Loading tracks](#loading-tracks)
   - [Update player](#update-player)
+  - [Get Player](#get-player)
+  - [Destroy player](#destroy-player)
   - [Connecting to the websocket](#connecting-to-the-websocket)
   - [LavaLink compability table](#lavalink-compability-table)
 
@@ -296,6 +298,19 @@ Authorization: <password>
 
 > [!WARNING]
 > The `endpoint`, `session_id` and `token` are Discord voice server specific, and should not be shared with anyone. However they're only temporarily confidential.
+
+## Destroy player
+
+Permits the client to destroy information about a client, resetting its data on FrequenC.
+
+```http
+DELETE /v1/sessions/xxx/players/xxx
+Authorization: <password>
+```
+
+```http
+HTTP/1.1 204 No Content
+```
 
 ## Connecting to the websocket
 

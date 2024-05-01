@@ -255,8 +255,6 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
     struct frequenc_ws_frame header = frequenc_parse_ws_frame(packet);
 
-    printf("[websocket]: Received frame with opcode %d, fin %d, payload length %ld\n", header.opcode, header.fin, header.payload_length);
-
     switch (header.opcode) {
       case 0: {
         if (continue_buffer == NULL) {
@@ -310,8 +308,6 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
         #endif
 
         header.buffer += 2;
-
-        printf("[websocket]: Connection closed with code %d\n", header.close_code);
 
         cbs->on_close(response, &header, cbs->user_data);
 
