@@ -141,8 +141,7 @@ void *listen_messages(void *args) {
 
     connection_data->callback(&client, socket_index, &request);
 
-    if (!server->sockets[socket_index].upgraded) break;
-    else httpparser_free_request(&request);
+    httpparser_free_request(&request);
   }
 
   if (payload_size == -1)
@@ -152,8 +151,6 @@ void *listen_messages(void *args) {
     connection_data->disconnect_callback(&client, socket_index);
 
     httpserver_disconnect_client(server, &client, socket_index);
-
-    httpparser_free_request(&request);
 
     printf("[main]: Client disconnected.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(&client), socket_index, cthreads_thread_id(cthreads_thread_self()));
 
