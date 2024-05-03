@@ -107,6 +107,32 @@ Authorization: <password>
 | isrc        | Optional | String     | The ISRC of the track.        |
 | source_name | Required | String     | The source name of the track. |
 
+## Track encoding
+
+The track encoding is a way of encoding tracks, and it's used for universally identifying tracks. Clients SHOULD implement the encoding of tracks locally and not rely on the server to encode it. The server is NOT prohibited from encoding the track, but it's not recommended and should be used as a last resort.
+
+The encoded tracks are buffers encoded in base64 to allow to be sent in JSONs. The buffer is structured in the following manner:
+
+| Name               | Value type          | Description                      |
+| ------------------ | ------------------- | -------------------------------- |
+| Length             | Unsigned int 32-bit | The length of the buffer.        |
+| Version            | Byte                | The version of the encoded. (1)  |
+| Title length       | Unsigned int 16-bit | The length of the title.         |
+| Title              | Char                | The title of the track.          |
+| Author length      | Unsigned int 16-bit | The length of the author.        |
+| Author             | Char                | The author of the track.         |
+| Length             | Unsigned int 32-bit | The length of the track.         |
+| Identifier         | Char                | The identifier of the track.     |
+| Is stream          | Byte (boolean)      | If the track is a stream.        |
+| URI length         | Unsigned int 16-bit | The length of the URI.           |
+| URI                | Char                | The URI of the track.            |
+| Artwork URL        | Byte (boolean)      | If the track has an artwork URL. |
+| Artwork URL        | Char                | The artwork URL of the track.    |
+| ISRC               | Byte (boolean)      | If the track has an ISRC.        |
+| ISRC               | Char                | The ISRC of the track.           |
+| Source name length | Unsigned int 16-bit | The length of the source name.   |
+| Source name        | Char                | The source name of the track.    |
+
 ## Decoding track
 
 Clients shouldn't implement the decoding of tracks, as they can rapidly change between versions. Instead, clients should use the `/decodetrack` endpoint. This endpoint is meant for decoding a single track, as it's optimized for that task.
