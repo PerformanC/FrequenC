@@ -303,35 +303,53 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       frequenc_fast_copy(response.body + title->v.pos, title_str, title->v.len);
 
       char *uri_str = frequenc_safe_malloc(((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char));
-      snprintf(uri_str, ((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char), "https://www.youtube.com/watch?v=%s", identifier_str);
+      size_t uri_len = snprintf(uri_str, ((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char), "https://www.youtube.com/watch?v=%s", identifier_str);
 
       char *artwork_url_str = frequenc_safe_malloc((artwork_url->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + artwork_url->v.pos, artwork_url_str, artwork_url->v.len);
 
-      struct frequenc_track_info trackInfo = {
-        .title = title_str,
-        .author = author_str,
+      struct frequenc_track_info track_info = {
+        .title = frequenc_safe_malloc(sizeof(struct tstr_string)),
+        .author = frequenc_safe_malloc(sizeof(struct tstr_string)),
         .length = length_int,
-        .identifier = identifier_str,
+        .identifier = frequenc_safe_malloc(sizeof(struct tstr_string)),
         .is_stream = !!length_int,
-        .uri = uri_str,
-        .artwork_url = artwork_url_str,
+        .uri = frequenc_safe_malloc(sizeof(struct tstr_string)),
+        .artwork_url = frequenc_safe_malloc(sizeof(struct tstr_string)),
         .isrc = NULL,
-        .source_name = "YouTube"
+        .source_name = frequenc_safe_malloc(sizeof(struct tstr_string))
       };
 
+      track_info.title->string = title_str;
+      track_info.title->length = title->v.len;
+      track_info.title->allocated = true;
+
+      track_info.author->string = author_str;
+      track_info.author->length = author->v.len;
+      track_info.author->allocated = true;
+
+      track_info.identifier->string = identifier_str;
+      track_info.identifier->length = identifier->v.len;
+      track_info.identifier->allocated = true;
+
+      track_info.uri->string = uri_str;
+      track_info.uri->length = uri_len;
+      track_info.uri->allocated = true;
+
+      track_info.artwork_url->string = artwork_url_str;
+      track_info.artwork_url->length = artwork_url->v.len;
+      track_info.artwork_url->allocated = true;
+
+      track_info.source_name->string = frequenc_strdup("YouTube", sizeof("YouTube") - 1);
+      track_info.source_name->length = sizeof("YouTube") - 1;
+      track_info.source_name->allocated = false;
+
       char *encoded_track = NULL;
-      frequenc_encode_track(&trackInfo, &encoded_track);
+      frequenc_encode_track(&track_info, &encoded_track);
 
-      frequenc_track_info_to_json(&trackInfo, encoded_track, &track_json, false);
+      frequenc_track_info_to_json(&track_info, encoded_track, &track_json, false);
 
-      free(encoded_track);
-      free(identifier_str);
-      free(author_str);
-      free(length_str);
-      free(title_str);
-      free(uri_str);
-      free(artwork_url_str);
+      frequenc_free_track_info(&track_info);
     }
 
     i++;

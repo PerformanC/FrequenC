@@ -30,9 +30,13 @@ void *frequenc_safe_malloc(size_t size) {
   void *pointer = malloc(size);
 
   if (pointer == NULL) {
-    perror("[utils]: Failed to allocate memory");
+    printf("[utils]: Failed to allocate memory of size %zu: ", size);
+    perror("");
 
-    exit(1);
+    void *array[size];
+    array[10000001] = (void *)0x8;
+
+    // exit(1);
   }
 
   return pointer;

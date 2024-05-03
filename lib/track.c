@@ -41,14 +41,16 @@ uint64_t _read_long(struct _decoder_class *decoder_class) {
   return msb + lsb;
 }
 
-char *_read_utf(struct _decoder_class *decoder_class) {
+struct tstr_string *_read_utf(struct _decoder_class *decoder_class) {
   uint16_t len = _read_unsigned_short(decoder_class);
   size_t start = _change_bytes(decoder_class, len);
 
-  char *result = frequenc_safe_malloc((len + 1) * sizeof(char));
+  struct tstr_string *result = frequenc_safe_malloc(sizeof(struct tstr_string));
+  result->string = frequenc_safe_malloc(len + 1);
+  result->length = len;
+  result->allocated = false;
 
-  memcpy(result, decoder_class->buffer + start, len);
-  result[len] = '\0';
+  frequenc_fast_copy((char *)decoder_class->buffer + start, result->string, len);
 
   return result;
 }
@@ -117,7 +119,7 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
     return -1;
   }
 
-  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", result->version, track, result->title, result->author, result->length, result->identifier, result->is_stream ? "true" : "false", result->uri ? result->uri : "null", result->artwork_url ? result->artwork_url : "null", result->isrc ? result->isrc : "null", result->source_name);
+  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", result->version, track, result->title->string, result->author->string, result->length, result->identifier->string, result->is_stream ? "true" : "false", result->uri->string, result->artwork_url ? result->artwork_url->string : "null", result->isrc ? result->isrc->string : "null", result->source_name->string);
 
   free(output);
 
@@ -162,11 +164,11 @@ void _write_long(unsigned char *buffer, size_t *position, uint64_t value) {
   _write_int(buffer, position, (uint32_t)(value & 0xFFFFFFFF));
 }
 
-void _write_utf(unsigned char *buffer, size_t *position, char *value, size_t len) {
-  _write_unsigned_short(buffer, position, len);
-  memcpy(buffer + *position, value, len);
+void _write_utf(unsigned char *buffer, size_t *position, struct tstr_string *value) {
+  _write_unsigned_short(buffer, position, value->length);
+  memcpy(buffer + *position, value->string, value->length);
 
-  *position += len;
+  *position += value->length;
 }
 
 size_t _calculate_track_size(struct frequenc_track_info *track) {
@@ -177,46 +179,43 @@ size_t _calculate_track_size(struct frequenc_track_info *track) {
 
   /* Title */
   size += 2;
-  size += strlen(track->title);
+  size += track->title->length;
 
   /* Author */
   size += 2;
-  size += strlen(track->author);
+  size += track->author->length;
 
   /* Length */
   size += 8;
 
   /* Identifier */
   size += 2;
-  size += strlen(track->identifier);
+  size += track->identifier->length;
 
   /* Is Stream */
   size += 1;
 
   /* URI */
-  size += 1;
-  if (track->uri != NULL) {
-    size += 2;
-    size += strlen(track->uri);
-  }
+  size += 2;
+  size += track->uri->length;
 
   /* Artwork URL */
   size += 1;
   if (track->artwork_url != NULL) {
     size += 2;
-    size += strlen(track->artwork_url);
+    size += track->artwork_url->length;
   }
 
   /* ISRC */
   size += 1;
   if (track->isrc != NULL) {
     size += 2;
-    size += strlen(track->isrc);
+    size += track->isrc->length;
   }
 
   /* Source Name */
   size += 2;
-  size += strlen(track->source_name);
+  size += track->source_name->length;
 
   return size;
 }
@@ -258,15 +257,15 @@ void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *e
 
   pjsonb_enter_object(track_json, "info");
 
-  pjsonb_set_string(track_json, "title", track_info->title);
-  pjsonb_set_string(track_json, "author", track_info->author);
+  pjsonb_set_string(track_json, "title", track_info->title->string);
+  pjsonb_set_string(track_json, "author", track_info->author->string);
   pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier);
+  pjsonb_set_string(track_json, "identifier", track_info->identifier->string);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
-  pjsonb_set_string(track_json, "uri", track_info->uri);
-  pjsonb_set_if(track_json, string, track_info->artwork_url != NULL, "artwork_url", track_info->artwork_url);
-  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc);
-  pjsonb_set_string(track_json, "source_name", track_info->source_name);
+  pjsonb_set_string(track_json, "uri", track_info->uri->string);
+  pjsonb_set_if(track_json, string, track_info->artwork_url != NULL, "artwork_url", track_info->artwork_url->string);
+  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc->string);
+  pjsonb_set_string(track_json, "source_name", track_info->source_name->string);
 
   pjsonb_leave_object(track_json);
 
@@ -276,15 +275,15 @@ void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *e
 void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json) {
   pjsonb_enter_object(track_json, NULL);
 
-  pjsonb_set_string(track_json, "title", track_info->title);
-  pjsonb_set_string(track_json, "author", track_info->author);
+  pjsonb_set_string(track_json, "title", track_info->title->string);
+  pjsonb_set_string(track_json, "author", track_info->author->string);
   pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier);
+  pjsonb_set_string(track_json, "identifier", track_info->identifier->string);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
-  pjsonb_set_string(track_json, "uri", track_info->uri);
-  pjsonb_set_if(track_json, string, track_info->artwork_url != NULL, "artwork_url", track_info->artwork_url);
-  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc);
-  pjsonb_set_string(track_json, "source_name", track_info->source_name);
+  pjsonb_set_string(track_json, "uri", track_info->uri->string);
+  pjsonb_set_if(track_json, string, track_info->artwork_url != NULL, "artwork_url", track_info->artwork_url->string);
+  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc->string);
+  pjsonb_set_string(track_json, "source_name", track_info->source_name->string);
 
   pjsonb_leave_object(track_json);
 }
@@ -327,9 +326,9 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
 
   path[pathLen] = "uri";
   jsmnf_pair *uri = jsmnf_find_path(pairs, json, path, pathSize);
+  if (uri == NULL) return -1;
 
   char *uri_str = frequenc_safe_malloc(uri->v.len + 1);
-  if (uri_str == NULL) return -1;
   frequenc_fast_copy(json + uri->v.pos, uri_str, uri->v.len);
 
   path[pathLen] = "artwork_url";
@@ -358,26 +357,73 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
   frequenc_fast_copy(json + source_name->v.pos, source_name_str, source_name->v.len);
 
   *track_info = (struct frequenc_track_info) {
-    .title = title_str,
-    .author = author_str,
+    .title = frequenc_safe_malloc(sizeof(struct tstr_string)),
+    .author = frequenc_safe_malloc(sizeof(struct tstr_string)),
     .length = length_num,
-    .identifier = identifier_str,
+    .identifier = frequenc_safe_malloc(sizeof(struct tstr_string)),
     .is_stream = is_stream_bool,
-    .uri = uri_str,
-    .artwork_url = artwork_url_str,
-    .isrc = isrc_str,
-    .source_name = source_name_str
+    .uri = frequenc_safe_malloc(sizeof(struct tstr_string)),
+    .artwork_url = artwork_url_str == NULL ? NULL : frequenc_safe_malloc(sizeof(struct tstr_string)),
+    .isrc = isrc_str == NULL ? NULL : frequenc_safe_malloc(sizeof(struct tstr_string)),
+    .source_name = frequenc_safe_malloc(sizeof(struct tstr_string))
   };
+
+  track_info->title->string = title_str;
+  track_info->title->length = title->v.len;
+  track_info->title->allocated = true;
+
+  track_info->author->string = author_str;
+  track_info->author->length = author->v.len;
+  track_info->author->allocated = true;
+
+  track_info->identifier->string = identifier_str;
+  track_info->identifier->length = identifier->v.len;
+  track_info->identifier->allocated = true;
+
+  track_info->uri->string = uri_str;
+  track_info->uri->length = uri->v.len;
+  track_info->uri->allocated = true;
+
+  if (artwork_url_str != NULL) {
+    track_info->artwork_url->string = artwork_url_str;
+    track_info->artwork_url->length = artwork_url->v.len;
+    track_info->artwork_url->allocated = true;
+  } else {
+    track_info->artwork_url = NULL;
+  }
+
+  if (isrc_str != NULL) {
+    track_info->isrc->string = isrc_str;
+    track_info->isrc->length = isrc->v.len;
+    track_info->isrc->allocated = true;
+  } else {
+    track_info->isrc = NULL;
+  }
+
+  track_info->source_name->string = source_name_str;
+  track_info->source_name->length = source_name->v.len;
+  track_info->source_name->allocated = true;
 
   return 0;
 }
 
 void frequenc_free_track_info(struct frequenc_track_info *track_info) {
+  frequenc_safe_free(track_info->title->string);
   frequenc_safe_free(track_info->title);
+  frequenc_safe_free(track_info->author->string);
   frequenc_safe_free(track_info->author);
+  frequenc_safe_free(track_info->identifier->string);
   frequenc_safe_free(track_info->identifier);
+  frequenc_safe_free(track_info->uri->string);
   frequenc_safe_free(track_info->uri);
-  frequenc_safe_free(track_info->artwork_url);
-  frequenc_safe_free(track_info->isrc);
+  if (track_info->artwork_url != NULL) {
+    frequenc_safe_free(track_info->artwork_url->string);
+    frequenc_safe_free(track_info->artwork_url);
+  }
+  if (track_info->isrc != NULL) {
+    frequenc_safe_free(track_info->isrc->string);
+    frequenc_safe_free(track_info->isrc);
+  }
+  frequenc_safe_free(track_info->source_name->string);
   frequenc_safe_free(track_info->source_name);
 }
