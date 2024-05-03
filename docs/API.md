@@ -93,6 +93,20 @@ Authorization: <password>
 > [!WARNING]
 > `sourceManagers` and `filters` may change between versions.
 
+## Track structure
+
+| Key        | Key type | Value type | Description                   |
+| ---------- | -------- | ---------- | ----------------------------- |
+| title      | Required | String     | The title of the track.       |
+| author     | Required | String     | The author of the track.      |
+| length     | Required | Number     | The length of the track.      |
+| identifier | Required | String     | The identifier of the track.  |
+| isStream   | Required | Boolean    | If the track is a stream.     |
+| uri        | Required | String     | The URI of the track.         |
+| artworkUrl | Optional | String     | The artwork URL of the track. |
+| isrc       | Optional | String     | The ISRC of the track.        |
+| sourceName | Required | String     | The source name of the track. |
+
 ## Decoding track
 
 Clients shouldn't implement the decoding of tracks, as they can rapidly change between versions. Instead, clients should use the `/decodetrack` endpoint. This endpoint is meant for decoding a single track, as it's optimized for that task.
