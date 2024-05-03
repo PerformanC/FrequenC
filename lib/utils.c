@@ -26,6 +26,67 @@
 
 #include "utils.h"
 
+void *frequenc_safe_malloc(size_t size) {
+  void *pointer = malloc(size);
+
+  if (pointer == NULL) {
+    perror("[utils]: Failed to allocate memory");
+
+    exit(1);
+  }
+
+  return pointer;
+}
+
+void *frequenc_safe_realloc(void *pointer, size_t size) {
+  void *newPtr = realloc(pointer, size);
+
+  if (newPtr == NULL) {
+    perror("[utils]: Failed to reallocate memory");
+
+    exit(1);
+  }
+
+  return newPtr;
+}
+
+void frequenc_safe_free(void *pointer) {
+  if (pointer != NULL) {
+    free(pointer);
+
+    pointer = NULL;
+  }
+}
+
+void frequenc_fast_copy(const char *src, char *dest, size_t size) {
+  memcpy(dest, src, size);
+  dest[size] = '\0';
+}
+
+char *frequenc_strdup(const char *str, size_t size) {
+  size_t len = size == 0 ? strlen(str) : size;
+  char *new_str = frequenc_safe_malloc(len + 1);
+  frequenc_fast_copy(str, new_str, len);
+
+  return new_str;
+}
+
+void frequenc_sleep(int ms) {
+  #ifdef _WIN32
+    Sleep(ms);
+  #else
+    #if _POSIX_C_SOURCE >= 199309L
+      struct timespec ts;
+      ts.tv_sec = ms / 1000;
+      ts.tv_nsec = (ms % 1000) * 1000000;
+
+      nanosleep(&ts, NULL);
+    #else
+      usleep(ms * 1000);
+    #endif
+  #endif
+}
+
 unsigned int frequenc_safe_seeding(void) {
   unsigned int seed = 0;
   
@@ -93,186 +154,6 @@ char *frequenc_generate_session_id(char *result) {
   return result;
 }
 
-void frequenc_fast_copy(const char *src, char *dest, size_t size) {
-  memcpy(dest, src, size);
-  dest[size] = '\0';
-}
-
-void frequenc_cleanup(void *pointer) {
-  if (pointer != NULL) {
-    free(pointer);
-
-    pointer = NULL;
-  }
-}
-
-void frequenc_free_nullable(void *pointer) {
-  if (pointer) free(pointer);
-}
-
-void *frequenc_safe_malloc(size_t size) {
-  void *pointer = malloc(size);
-
-  if (pointer == NULL) {
-    perror("[utils]: Failed to allocate memory");
-
-    exit(1);
-  }
-
-  return pointer;
-}
-
-void *frequenc_safe_realloc(void *pointer, size_t size) {
-  void *newPtr = realloc(pointer, size);
-
-  if (newPtr == NULL) {
-    perror("[utils]: Failed to reallocate memory");
-
-    exit(1);
-  }
-
-  return newPtr;
-}
-
-char *frequenc_strdup(const char *str, size_t size) {
-  size_t len = size == 0 ? strlen(str) : size;
-  char *new_str = frequenc_safe_malloc(len + 1);
-  frequenc_fast_copy(str, new_str, len);
-
-  return new_str;
-}
-
-void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, struct pjsonb *track_json, bool unique) {
-  if (unique == false) pjsonb_enter_object(track_json, NULL);
-
-  pjsonb_set_string(track_json, "encoded", encoded);
-
-  pjsonb_enter_object(track_json, "info");
-
-  pjsonb_set_string(track_json, "title", track_info->title);
-  pjsonb_set_string(track_json, "author", track_info->author);
-  pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier);
-  pjsonb_set_bool(track_json, "isStream", track_info->isStream);
-  pjsonb_set_string(track_json, "uri", track_info->uri);
-  pjsonb_set_if(track_json, string, track_info->artworkUrl != NULL, "artworkUrl", track_info->artworkUrl);
-  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc);
-  pjsonb_set_string(track_json, "sourceName", track_info->sourceName);
-
-  pjsonb_leave_object(track_json);
-
-  if (unique == false) pjsonb_leave_object(track_json);
-}
-
-void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json) {
-  pjsonb_enter_object(track_json, NULL);
-
-  pjsonb_set_string(track_json, "title", track_info->title);
-  pjsonb_set_string(track_json, "author", track_info->author);
-  pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier);
-  pjsonb_set_bool(track_json, "isStream", track_info->isStream);
-  pjsonb_set_string(track_json, "uri", track_info->uri);
-  pjsonb_set_if(track_json, string, track_info->artworkUrl != NULL, "artworkUrl", track_info->artworkUrl);
-  pjsonb_set_if(track_json, string, track_info->isrc != NULL, "isrc", track_info->isrc);
-  pjsonb_set_string(track_json, "sourceName", track_info->sourceName);
-
-  pjsonb_leave_object(track_json);
-}
-
-int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize) {
-  path[pathLen] = "title";
-  jsmnf_pair *title = jsmnf_find_path(pairs, json, path, pathSize);
-  if (title == NULL) return -1;
-
-  char *title_str = frequenc_safe_malloc(title->v.len + 1);
-  frequenc_fast_copy(json + title->v.pos, title_str, title->v.len);
-
-  path[pathLen] = "author";
-  jsmnf_pair *author = jsmnf_find_path(pairs, json, path, pathSize);
-  if (author == NULL) return -1;
-
-  char *author_str = frequenc_safe_malloc(author->v.len + 1);
-  frequenc_fast_copy(json + author->v.pos, author_str, author->v.len);
-
-  path[pathLen] = "length";
-  jsmnf_pair *length = jsmnf_find_path(pairs, json, path, pathSize);
-  if (length == NULL) return -1;
-
-  char *length_str = frequenc_safe_malloc(length->v.len + 1);
-  frequenc_fast_copy(json + length->v.pos, length_str, length->v.len);
-  long length_num = strtol(length_str, NULL, 10);
-  free(length_str);
-
-  path[pathLen] = "identifier";
-  jsmnf_pair *identifier = jsmnf_find_path(pairs, json, path, pathSize);
-  if (identifier == NULL) return -1;
-
-  char *identifier_str = frequenc_safe_malloc(identifier->v.len + 1);
-  frequenc_fast_copy(json + identifier->v.pos, identifier_str, identifier->v.len);
-
-  path[pathLen] = "isStream";
-  jsmnf_pair *isStream = jsmnf_find_path(pairs, json, path, pathSize);
-  if (isStream == NULL) return -1;
-  bool isStream_bool = json[isStream->v.pos] == 't';
-
-  path[pathLen] = "uri";
-  jsmnf_pair *uri = jsmnf_find_path(pairs, json, path, pathSize);
-
-  char *uri_str = frequenc_safe_malloc(uri->v.len + 1);
-  if (uri_str == NULL) return -1;
-  frequenc_fast_copy(json + uri->v.pos, uri_str, uri->v.len);
-
-  path[pathLen] = "artworkUrl";
-  jsmnf_pair *artworkUrl = jsmnf_find_path(pairs, json, path, pathSize);
-
-  char *artworkUrl_str = NULL;
-  if (artworkUrl != NULL) {
-    artworkUrl_str = frequenc_safe_malloc(artworkUrl->v.len + 1);
-    frequenc_fast_copy(json + artworkUrl->v.pos, artworkUrl_str, artworkUrl->v.len);
-  }
-
-  path[pathLen] = "isrc";
-  jsmnf_pair *isrc = jsmnf_find_path(pairs, json, path, pathSize);
-
-  char *isrc_str = NULL;
-  if (isrc != NULL) {
-    isrc_str = frequenc_safe_malloc(isrc->v.len + 1);
-    frequenc_fast_copy(json + isrc->v.pos, isrc_str, isrc->v.len);
-  }
-
-  path[pathLen] = "sourceName";
-  jsmnf_pair *sourceName = jsmnf_find_path(pairs, json, path, pathSize);
-  if (sourceName == NULL) return -1;
-
-  char *sourceName_str = frequenc_safe_malloc(sourceName->v.len + 1);
-  frequenc_fast_copy(json + sourceName->v.pos, sourceName_str, sourceName->v.len);
-
-  *track_info = (struct frequenc_track_info) {
-    .title = title_str,
-    .author = author_str,
-    .length = length_num,
-    .identifier = identifier_str,
-    .isStream = isStream_bool,
-    .uri = uri_str,
-    .artworkUrl = artworkUrl_str,
-    .isrc = isrc_str,
-    .sourceName = sourceName_str
-  };
-
-  return 0;
-}
-
-void frequenc_free_track_info(struct frequenc_track_info *track_info) {
-  frequenc_cleanup(track_info->title);
-  frequenc_cleanup(track_info->author);
-  frequenc_cleanup(track_info->identifier);
-  frequenc_cleanup(track_info->uri);
-  frequenc_cleanup(track_info->artworkUrl);
-  frequenc_cleanup(track_info->isrc);
-  frequenc_cleanup(track_info->sourceName);
-}
-
 void frequenc_stringify_int(int length, char *result, size_t result_size) {
   snprintf(result, result_size, "%d", length);
 }
@@ -311,23 +192,7 @@ int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *r
 }
 
 void frequenc_free_client_info(struct frequenc_client_info *client) {
-  frequenc_cleanup(client->name);
-  frequenc_cleanup(client->version);
-  frequenc_cleanup(client->bot_name);
-}
-
-void frequenc_sleep(int ms) {
-  #ifdef _WIN32
-    Sleep(ms);
-  #else
-    #if _POSIX_C_SOURCE >= 199309L
-      struct timespec ts;
-      ts.tv_sec = ms / 1000;
-      ts.tv_nsec = (ms % 1000) * 1000000;
-
-      nanosleep(&ts, NULL);
-    #else
-      usleep(ms * 1000);
-    #endif
-  #endif
+  frequenc_safe_free(client->name);
+  frequenc_safe_free(client->version);
+  frequenc_safe_free(client->bot_name);
 }

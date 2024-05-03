@@ -439,7 +439,7 @@ void pdvoice_free(struct pdvoice *connection) {
   }
 
   if (connection->udp_connection_info != NULL) {
-    frequenc_cleanup(connection->udp_connection_info->ip);
+    frequenc_safe_free(connection->udp_connection_info->ip);
 
     free(connection->udp_connection_info);
     connection->udp_connection_info = NULL;
@@ -454,5 +454,5 @@ void pdvoice_free(struct pdvoice *connection) {
 
   cthreads_mutex_unlock(connection->mutex);
   cthreads_mutex_destroy(connection->mutex);
-  frequenc_cleanup(connection->mutex);
+  frequenc_safe_free(connection->mutex);
 }

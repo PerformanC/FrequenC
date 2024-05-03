@@ -276,7 +276,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
           cbs->on_message(response, &continue_frame, cbs->user_data);
 
-          frequenc_cleanup(continue_buffer);
+          frequenc_safe_free(continue_buffer);
           continue_buffer_length = 0;
         }
 
@@ -334,11 +334,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   }
 
   exit: {
-    if (continue_buffer != NULL) {
-      frequenc_cleanup(continue_buffer);
-
-      continue_buffer_length = 0;
-    }
+    frequenc_safe_free(continue_buffer);
 
     httpclient_shutdown(response);
 

@@ -95,17 +95,17 @@ Authorization: <password>
 
 ## Track structure
 
-| Key        | Key type | Value type | Description                   |
-| ---------- | -------- | ---------- | ----------------------------- |
-| title      | Required | String     | The title of the track.       |
-| author     | Required | String     | The author of the track.      |
-| length     | Required | Number     | The length of the track.      |
-| identifier | Required | String     | The identifier of the track.  |
-| isStream   | Required | Boolean    | If the track is a stream.     |
-| uri        | Required | String     | The URI of the track.         |
-| artworkUrl | Optional | String     | The artwork URL of the track. |
-| isrc       | Optional | String     | The ISRC of the track.        |
-| sourceName | Required | String     | The source name of the track. |
+| Key         | Key type | Value type | Description                   |
+| ----------- | -------- | ---------- | ----------------------------- |
+| title       | Required | String     | The title of the track.       |
+| author      | Required | String     | The author of the track.      |
+| length      | Required | Number     | The length of the track.      |
+| identifier  | Required | String     | The identifier of the track.  |
+| is_stream   | Required | Boolean    | If the track is a stream.     |
+| uri         | Required | String     | The URI of the track.         |
+| artwork_url | Optional | String     | The artwork URL of the track. |
+| isrc        | Optional | String     | The ISRC of the track.        |
+| source_name | Required | String     | The source name of the track. |
 
 ## Decoding track
 

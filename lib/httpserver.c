@@ -18,8 +18,6 @@
 #define PORT 8888
 #endif
 
-#define MAX_MESSAGE_LENGTH 2048
-
 void httpserver_start_server(struct httpserver *server) {
   server->server = (struct csocket_server) {
     .port = PORT
@@ -126,7 +124,7 @@ void *listen_messages(void *args) {
   char payload[TCPLIMITS_PACKET_SIZE];
   int payload_size = 0;
 
-  while ((payload_size = csocket_server_recv(&client, payload, MAX_MESSAGE_LENGTH)) > 0) {
+  while ((payload_size = csocket_server_recv(&client, payload, TCPLIMITS_PACKET_SIZE)) > 0) {
     printf("[httpserver]: Received message from socket.\n - Socket: %d\n - Socket index: %d\n - Payload size: %d\n", csocket_server_client_get_id(&client), socket_index, payload_size);
 
     if (server->sockets[socket_index].upgraded) {

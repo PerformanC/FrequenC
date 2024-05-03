@@ -29,7 +29,7 @@
 #define VERSION_MINOR 0
 #define VERSION_PATCH 0
 
-#define SUPPORTED_SOURCES "[]"
+#define SUPPORTED_SOURCES "[\"youtube\"]"
 #define SUPPORTED_FILTERS "[]"
 
 #ifndef AUTHORIZATION
@@ -287,12 +287,11 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
           "\"minor\":%d,"
           "\"patch\":%d"
         "},"
-        "\"builtTime\":-1,"
         "\"git\":{"
           "\"branch\":\"%s\","
           "\"commit\":\"%s\""
         "},"
-        "\"sourceManagers\":%s,"
+        "\"source_managers\":%s,"
         "\"filters\":%s"
       "}",
       VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GITHUB_BRANCH, GITHUB_COMMIT_SHA, SUPPORTED_SOURCES, SUPPORTED_FILTERS);
@@ -567,9 +566,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     pjsonb_end(&encoded_tracks_json);
 
-    printf("[main]: Position: %d\n", encoded_tracks_json.position);
-    printf("[main]: Encoded tracks: %.*s\n", encoded_tracks_json.position, encoded_tracks_json.string);
-
     char payload_length[8 + 1];
     frequenc_stringify_int(encoded_tracks_json.position, payload_length, sizeof(payload_length));
 
@@ -760,7 +756,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     char guild_id_str[19 + 1];
     frequenc_fast_copy(request->path + guild_id.start, guild_id_str, guild_id.end - guild_id.start);
 
-    /* TODO: involve in a mutex session-wise */
     struct tablec_bucket *guild_bucket = tablec_get(&session->guilds, guild_id_str);
     struct client_guild_information *guild_info = NULL;
 

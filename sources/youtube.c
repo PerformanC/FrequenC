@@ -168,7 +168,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   jsmnf_pair *contents = jsmnf_find_path(pairs, response.body, path, 3);
 
   char i_str[11 + 1];
-  snprintf(i_str, sizeof(i_str), "%d", contents->size - 1); /* TODO: Replace snprintf */
+  snprintf(i_str, sizeof(i_str), "%d", contents->size - 1);
 
   path[3] = i_str;
   path[4] = "itemSectionRenderer";
@@ -186,7 +186,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   int i = 0;
   while (i < videos->size) {
     char i2_str[11 + 1];
-    snprintf(i2_str, sizeof(i2_str), "%d", i); /* TODO: Replace snprintf */
+    snprintf(i2_str, sizeof(i2_str), "%d", i);
 
     path[6] = i2_str;
 
@@ -220,11 +220,11 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       jsmnf_pair *thumbnails = jsmnf_find_path(pairs, response.body, path, 10);
       
       char i3_str[11 + 1];
-      snprintf(i3_str, sizeof(i3_str), "%d", thumbnails->size - 1); /* TODO: Replace snprintf */
+      snprintf(i3_str, sizeof(i3_str), "%d", thumbnails->size - 1);
 
       path[10] = i3_str;
       path[11] = "url";
-      jsmnf_pair *artworkUrl = jsmnf_find_path(pairs, response.body, path, 12);
+      jsmnf_pair *artwork_url = jsmnf_find_path(pairs, response.body, path, 12);
 
       char *identifier_str = frequenc_safe_malloc((identifier->v.len + 1) * sizeof(char));
       frequenc_fast_copy(response.body + identifier->v.pos, identifier_str, identifier->v.len);
@@ -305,19 +305,19 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       char *uri_str = frequenc_safe_malloc(((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char));
       snprintf(uri_str, ((sizeof("https://www.youtube.com/watch?v=") - 1) + identifier->v.len + 1) * sizeof(char), "https://www.youtube.com/watch?v=%s", identifier_str);
 
-      char *artworkUrl_str = frequenc_safe_malloc((artworkUrl->v.len + 1) * sizeof(char));
-      frequenc_fast_copy(response.body + artworkUrl->v.pos, artworkUrl_str, artworkUrl->v.len);
+      char *artwork_url_str = frequenc_safe_malloc((artwork_url->v.len + 1) * sizeof(char));
+      frequenc_fast_copy(response.body + artwork_url->v.pos, artwork_url_str, artwork_url->v.len);
 
       struct frequenc_track_info trackInfo = {
         .title = title_str,
         .author = author_str,
         .length = length_int,
         .identifier = identifier_str,
-        .isStream = length_int == 0,
+        .is_stream = !!length_int,
         .uri = uri_str,
-        .artworkUrl = artworkUrl_str,
+        .artwork_url = artwork_url_str,
         .isrc = NULL,
-        .sourceName = "YouTube"
+        .source_name = "YouTube"
       };
 
       char *encoded_track = NULL;
@@ -331,7 +331,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
       free(length_str);
       free(title_str);
       free(uri_str);
-      free(artworkUrl_str);
+      free(artwork_url_str);
     }
 
     i++;

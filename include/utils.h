@@ -16,36 +16,26 @@ struct frequenc_client_info {
   char *bot_name;
 };
 
-unsigned int frequenc_safe_seeding(void);
-
-char *frequenc_generate_session_id(char *result);
-
-void frequenc_fast_copy(const char *src, char *dest, size_t size);
-
-void frequenc_cleanup(void *pointer);
-
-void frequenc_free_nullable(void *pointer);
-
 void *frequenc_safe_malloc(size_t size);
 
 void *frequenc_safe_realloc(void *pointer, size_t size);
 
+void frequenc_safe_free(void *pointer);
+
+void frequenc_fast_copy(const char *src, char *dest, size_t size);
+
 char *frequenc_strdup(const char *str, size_t size);
 
-void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, struct pjsonb *track_json, bool unique);
+void frequenc_sleep(int ms);
 
-void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json);
+unsigned int frequenc_safe_seeding(void);
 
-int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize);
-
-void frequenc_free_track_info(struct frequenc_track_info *track_info);
+char *frequenc_generate_session_id(char *result);
 
 void frequenc_stringify_int(int length, char *result, size_t result_size);
 
 int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *result);
 
 void frequenc_free_client_info(struct frequenc_client_info *client);
-
-void frequenc_sleep(int ms);
 
 #endif
