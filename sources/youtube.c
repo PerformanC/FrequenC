@@ -359,15 +359,9 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     return result;
   }
 
-  printf("1 - %.*s\n", track_json.position, track_json.string);
-
   pjsonb_leave_array(&track_json);
 
-  printf("2 - %.*s\n", track_json.position, track_json.string);
-
   pjsonb_end(&track_json);
-
-  printf("3 - %.*s\n", track_json.position, track_json.string);
 
   free(pairs);
   free(tokens);

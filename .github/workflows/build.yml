@@ -1,0 +1,29 @@
+name: Build FrequenC
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: sudo apt-get install -y libssl-dev clang make
+
+    - name: Build
+      env:
+        GITHUB_COMMIT_SHA: ${{ github.sha }}
+        GITHUB_BRANCH: ${{ github.ref_name }}
+      run: CFLAGS="-Ofast -fno-signed-zeros -fno-trapping-math -funroll-loops" make
+
+    - name: Archive Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: FrequenC
+        path: FrequenC

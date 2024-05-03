@@ -29,10 +29,6 @@
 #define VERSION_MINOR 0
 #define VERSION_PATCH 0
 
-#define GIT_BRANCH "main"
-#define GIT_COMMIT "unknown"
-#define GIT_COMMIT_TIME "-1"
-
 #define SUPPORTED_SOURCES "[]"
 #define SUPPORTED_FILTERS "[]"
 
@@ -294,14 +290,13 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         "\"builtTime\":-1,"
         "\"git\":{"
           "\"branch\":\"%s\","
-          "\"commit\":\"%s\","
-          "\"commitTime\":%s"
+          "\"commit\":\"%s\""
         "},"
         "\"sourceManagers\":%s,"
         "\"filters\":%s"
       "}",
-      VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GIT_BRANCH, GIT_COMMIT, GIT_COMMIT_TIME, SUPPORTED_SOURCES, SUPPORTED_FILTERS);
-    
+      VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, GITHUB_BRANCH, GITHUB_COMMIT_SHA, SUPPORTED_SOURCES, SUPPORTED_FILTERS);
+
     frequenc_stringify_int(payload_length, payload_length_str, sizeof(payload_length_str));
 
     struct httpserver_response response = {
