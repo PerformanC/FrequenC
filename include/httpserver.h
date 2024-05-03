@@ -29,6 +29,7 @@ struct httpserver_response {
   int headers_max_length;
   struct httpserver_header *headers;
   char *body;
+  size_t body_length;
 };
 
 struct _httpserver_connection_data {
@@ -60,19 +61,7 @@ void httpserver_set_socket_data(struct httpserver *server, int socket_index, voi
 
 void *httpserver_get_socket_data(struct httpserver *server, int socket_index);
 
-void httpserver_init_response(struct httpserver_response *response, struct httpserver_header *headers, int length);
-
-void httpserver_set_response_socket(struct httpserver_response *response, struct csocket_server_client *client);
-
-void httpserver_set_response_status(struct httpserver_response *response, int status);
-
-void httpserver_set_response_header(struct httpserver_response *response, char *key, char *value);
-
-void httpserver_set_response_body(struct httpserver_response *response, char *body);
-
 void httpserver_send_response(struct httpserver_response *response);
-
-void httpserver_set_socket_data(struct httpserver *server, int socket, void *data);
 
 void httpserver_upgrade_socket(struct httpserver *server, int socket_index);
 

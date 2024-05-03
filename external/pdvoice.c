@@ -40,7 +40,7 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
   struct pdvoice *connection = user_data;
 
   struct pjsonb jsonb;
-  pjsonb_init(&jsonb);
+  pjsonb_init(&jsonb, PJSONB_OBJECT);
 
   pjsonb_set_int(&jsonb, "op", 0);
 

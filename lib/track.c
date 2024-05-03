@@ -109,7 +109,6 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
     result->isrc = NULL;
   }
   if ((result->sourceName = _read_utf(&buf)) == NULL) return -1;
-  result->position = _read_long(&buf);
 
   if (buf.position != output_length - 1) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %d\n", buf.position, output_length - 1);
@@ -119,7 +118,7 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
     return -1;
   }
 
-  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n - Position: %lu\n", result->version, track, result->title, result->author, result->length, result->identifier, result->isStream ? "true" : "false", result->uri ? result->uri : "null", result->artworkUrl ? result->artworkUrl : "null", result->isrc ? result->isrc : "null", result->sourceName, result->position);
+  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", result->version, track, result->title, result->author, result->length, result->identifier, result->isStream ? "true" : "false", result->uri ? result->uri : "null", result->artworkUrl ? result->artworkUrl : "null", result->isrc ? result->isrc : "null", result->sourceName);
 
   free(output);
 
@@ -222,9 +221,6 @@ size_t _calculate_track_size(struct frequenc_track_info *track) {
   size += 2;
   size += strlen(track->sourceName);
 
-  /* Position */
-  size += 8;
-
   return size;
 }
 
@@ -245,7 +241,6 @@ int frequenc_encode_track(struct frequenc_track_info *track, char **result) {
   _write_byte(buffer, &position, track->isrc ? 1 : 0);
   if (track->isrc != NULL) _write_utf(buffer, &position, track->isrc);
   _write_utf(buffer, &position, track->sourceName);
-  _write_long(buffer, &position, track->position);
 
   _internal_write_int(buffer, 0, ((uint32_t)position - 4) | (1 << 30));
 

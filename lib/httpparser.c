@@ -104,7 +104,6 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   struct httpparser_header *transfer_encoding_header = httpparser_get_header(http_request, "transfer-encoding");
 
-  /* TODO: Should it be limited per method? */
   if (content_length > 0 || transfer_encoding_header != NULL) {
     struct httpparser_header *content_type_header = httpparser_get_header(http_request, "content-type");
     if (content_type_header == NULL) return -1;

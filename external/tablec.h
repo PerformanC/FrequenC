@@ -18,11 +18,11 @@ struct tablec_ht {
   struct tablec_bucket *buckets;
 };
 
-void tablec_init(struct tablec_ht *tablec, struct tablec_bucket buckets[], size_t capacity);
+void tablec_init(struct tablec_ht *tablec, size_t max_capacity);
 
-int tablec_resize(struct tablec_ht *tablec, struct tablec_bucket buckets[], size_t new_capacity);
+void tablec_resize(struct tablec_ht *tablec, size_t new_max_capacity);
 
-int tablec_set(struct tablec_ht *tablec, char *key, void *value);
+void tablec_set(struct tablec_ht *tablec, char *key, void *value);
 
 void tablec_del(struct tablec_ht *tablec, char *key);
 
@@ -30,4 +30,6 @@ struct tablec_bucket *tablec_get(struct tablec_ht *tablec, char *key);
 
 int tablec_full(struct tablec_ht *tablec);
 
-#endif /* TABLEC_H */
+void tablec_cleanup(struct tablec_ht *tablec);
+
+#endif

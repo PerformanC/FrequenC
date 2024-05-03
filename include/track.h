@@ -14,7 +14,6 @@ struct frequenc_track_info {
   char *artworkUrl;
   char *isrc;
   char *sourceName;
-  uint64_t position;
 };
 
 int frequenc_decode_track(struct frequenc_track_info *result, const char *track);

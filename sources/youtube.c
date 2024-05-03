@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "utils.h"
 #include "libtstr.h"
+#include "pjsonb.h"
+
+#include "utils.h"
 #include "httpclient.h"
 
 #define _frequenc_youtube_get_client_name(type) (type == 0 ? "ANDROID" : "ANDROID_MUSIC")
@@ -174,11 +176,12 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
   jsmnf_pair *videos = jsmnf_find_path(pairs, response.body, path, 6);
 
-  char *response_str = frequenc_safe_malloc((29 + 1) * sizeof(char));
-  size_t response_str_length = snprintf(response_str, (29 + 1) * sizeof(char),
-    "{"
-      "\"loadType\":\"search\","
-      "\"data\":[");
+  struct pjsonb track_json;
+  pjsonb_init(&track_json, PJSONB_OBJECT);
+
+  pjsonb_set_string(&track_json, "loadType", "search");
+
+  pjsonb_enter_array(&track_json, "data");
 
   int i = 0;
   while (i < videos->size) {
@@ -314,28 +317,15 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
         .uri = uri_str,
         .artworkUrl = artworkUrl_str,
         .isrc = NULL,
-        .sourceName = "YouTube",
-        .position = 0
+        .sourceName = "YouTube"
       };
 
-      char *encodedTrack = NULL;
-      frequenc_encode_track(&trackInfo, &encodedTrack);
+      char *encoded_track = NULL;
+      frequenc_encode_track(&trackInfo, &encoded_track);
 
-      char video_json[2048];
-      frequenc_track_info_to_json(&trackInfo, encodedTrack, video_json, sizeof(video_json));
+      frequenc_track_info_to_json(&trackInfo, encoded_track, &track_json, false);
 
-      if (response_str_length == 29) {
-        response_str = realloc(response_str, response_str_length + strlen(video_json) + 2);
-
-        tstr_append(response_str, video_json, &response_str_length, 0);
-      } else {
-        response_str = realloc(response_str, response_str_length + strlen(video_json) + sizeof(",") - 1 + 2);
-
-        tstr_append(response_str, ",", &response_str_length, 0);
-        tstr_append(response_str, video_json, &response_str_length, 0);
-      }
-
-      free(encodedTrack);
+      free(encoded_track);
       free(identifier_str);
       free(author_str);
       free(length_str);
@@ -347,8 +337,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     i++;
   }
 
-  if (response_str_length == 29) {
-    free(response_str);
+  if (track_json.position == 29) {
+    pjsonb_free(&track_json);
     free(response.body);
     free(pairs);
     free(tokens);
@@ -369,8 +359,15 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     return result;
   }
 
-  response_str = realloc(response_str, response_str_length + (sizeof("]}") - 1) + 1);
-  tstr_append(response_str, "]}", &response_str_length, 0);
+  printf("1 - %.*s\n", track_json.position, track_json.string);
+
+  pjsonb_leave_array(&track_json);
+
+  printf("2 - %.*s\n", track_json.position, track_json.string);
+
+  pjsonb_end(&track_json);
+
+  printf("3 - %.*s\n", track_json.position, track_json.string);
 
   free(pairs);
   free(tokens);
@@ -378,8 +375,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   free(body);
 
   struct tstr_string result = {
-    .string = response_str,
-    .length = response_str_length,
+    .string = track_json.string,
+    .length = track_json.position,
     .allocated = true
   };
 

@@ -11,11 +11,10 @@ const COMMIT = 'unknown'
 const COMMIT_TIME = -1
 const SOURCE_MANAGERS = []
 const FILTERS = []
-const PLUGINS = []
 
-const ENCODED_TRACK = 'QAAAUwEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkBAAphcnR3b3JrVXJsAQAEaXNyYwAKc291cmNlTmFtZQAAAAAHW80V'
+const ENCODED_TRACK = encodeURIComponent('QAAASwEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkBAAphcnR3b3JrVXJsAQAEaXNyYwAKc291cmNlTmFtZQ==')
 const DECODED_TRACK = {
-  encoded: ENCODED_TRACK,
+  encoded: decodeURIComponent(ENCODED_TRACK),
   info: {
     title: 'title',
     author: 'author',
@@ -25,12 +24,11 @@ const DECODED_TRACK = {
     uri: 'uri',
     artworkUrl: 'artworkUrl',
     isrc: 'isrc',
-    sourceName: 'sourceName',
-    position: 123456789
+    sourceName: 'sourceName'
   }
 }
 
-const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAPAEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgAAAAAACnNvdXJjZU5hbWUAAAAAB1vNFQ==')
+const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAOQEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkAAAAKc291cmNlTmFtZQ==')
 const DECODED_TRACK_ENFORCED = {
   encoded: decodeURIComponent(ENCODED_TRACK_ENFORCED),
   info: {
@@ -39,11 +37,8 @@ const DECODED_TRACK_ENFORCED = {
     length: 123456789,
     identifier: 'identifier',
     isStream: false,
-    uri: null,
-    artworkUrl: null,
-    isrc: null,
-    sourceName: 'sourceName',
-    position: 123456789
+    uri: 'uri',
+    sourceName: 'sourceName'
   }
 }
 
@@ -156,7 +151,7 @@ const DECODED_TRACK_ENFORCED = {
       }
     }, {
       method: 'POST',
-      body: JSON.stringify([ ENCODED_TRACK ]),
+      body: JSON.stringify([ DECODED_TRACK.encoded ]),
       expected: {
         statusCode: 200,
         headers: {
@@ -166,7 +161,7 @@ const DECODED_TRACK_ENFORCED = {
       }
     }, {
       method: 'POST',
-      body: JSON.stringify([ ENCODED_TRACK, decodeURIComponent(ENCODED_TRACK_ENFORCED) ]),
+      body: JSON.stringify([ DECODED_TRACK.encoded, DECODED_TRACK_ENFORCED.encoded ]),
       expected: {
         statusCode: 200,
         headers: {
@@ -178,11 +173,7 @@ const DECODED_TRACK_ENFORCED = {
       method: 'POST',
       body: JSON.stringify([]),
       expected: {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify([])
+        statusCode: 400
       }
     }]
   })
@@ -206,7 +197,7 @@ const DECODED_TRACK_ENFORCED = {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify([ ENCODED_TRACK ])
+        body: JSON.stringify([ DECODED_TRACK.encoded ])
       }
     }, {
       method: 'POST',
@@ -216,7 +207,7 @@ const DECODED_TRACK_ENFORCED = {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify([ ENCODED_TRACK, decodeURIComponent(ENCODED_TRACK_ENFORCED) ])
+        body: JSON.stringify([ DECODED_TRACK.encoded, DECODED_TRACK_ENFORCED.encoded ])
       }
     }, {
       method: 'POST',
@@ -267,7 +258,7 @@ const DECODED_TRACK_ENFORCED = {
         headers: {
           'Content-Type': 'text/plain'
         },
-        body: ENCODED_TRACK
+        body: DECODED_TRACK.encoded
       }
     }, {
       method: 'POST',
@@ -277,7 +268,7 @@ const DECODED_TRACK_ENFORCED = {
         headers: {
           'Content-Type': 'text/plain'
         },
-        body: decodeURIComponent(ENCODED_TRACK_ENFORCED)
+        body: DECODED_TRACK_ENFORCED.encoded
       }
     }]
   })

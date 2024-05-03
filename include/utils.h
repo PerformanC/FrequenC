@@ -2,9 +2,13 @@
 #define UTILS_H
 
 #define JSMN_HEADER
+#define JSMN_STRICT /* Set strict mode for jsmn (JSON tokenizer) */
 #include "jsmn.h"
 #include "jsmn-find.h"
+#include "pjsonb.h"
+
 #include "track.h"
+#include "types.h"
 
 struct frequenc_client_info {
   char *name;
@@ -28,9 +32,9 @@ void *frequenc_safe_realloc(void *pointer, size_t size);
 
 char *frequenc_strdup(const char *str, size_t size);
 
-int frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, char *result, size_t size);
+void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, struct pjsonb *track_json, bool unique);
 
-int frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, char *result, size_t size);
+void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json);
 
 int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize);
 

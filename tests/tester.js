@@ -55,7 +55,7 @@ function init(obj) {
 
   if (obj.giveCURLCommands) {
     testInfo.options.curlCommands.enabled = true
-    testInfo.options.curlCommands.fd = fs.openSync(`./test-report-${process.hrtime.bigint()}.txt`, 'w')
+    testInfo.options.curlCommands.fd = fs.openSync(`./test-report.txt`, 'w')
   }
 
   console.log(`[The Tester]: Tester initialized with ${obj.baseUrl} and ${obj.password}`)
@@ -267,7 +267,7 @@ async function run() {
       }
 
       if (test2.expected.statusCode !== res.statusCode) {
-        console.error(`[The Tester]: Status code test of ${test.name} #${i + 1} failed.\n - Expected: ${test2.expected.statusCode}\n - Actual: ${res.statusCode}`)
+        console.error(`[The Tester]: Status code test of ${test.name} #${i + 1} failed.\n - Expected: ${test2.expected.statusCode}\n - Actual  : ${res.statusCode}`)
 
         failed++
 
@@ -283,7 +283,7 @@ async function run() {
       const headersResult = await _checkHeaders(test2.expected.headers || {}, res.headers)
 
       if (!headersResult.success) {
-        console.error(`[The Tester]: Headers test of ${test.name} #${i + 1} failed.\n - Expected: ${headersResult.message[0]}\n - Actual: ${headersResult.message[1]}`)
+        console.error(`[The Tester]: Headers test of ${test.name} #${i + 1} failed.\n - Expected: ${headersResult.message[0]}\n - Actual  : ${headersResult.message[1]}`)
 
         failed++
 
@@ -300,7 +300,7 @@ async function run() {
         try {
           JSON.parse(res.data)
         } catch {
-          console.error(`[The Tester]: Body test of ${test.name} #${i + 1} failed.\n - Expected: JSON\n - Actual: Not JSON/Malformed JSON: ${res.data}`)
+          console.error(`[The Tester]: Body test of ${test.name} #${i + 1} failed.\n - Expected: JSON\n - Actual  : Not JSON/Malformed JSON: ${res.data}`)
 
           failed++
 
@@ -317,12 +317,12 @@ async function run() {
       const bodyResult = _checkBody(test2.expected.body, res.data)
 
       if (!bodyResult.success) {
-        console.error(`[The Tester]: Body test of ${test.name} #${i + 1} failed.\n - Expected: ${bodyResult.message[0]}\n - Actual: ${bodyResult.message[1]}`)
+        console.error(`[The Tester]: Body test of ${test.name} #${i + 1} failed.\n - Expected: ${bodyResult.message[0]}\n - Actual  : ${bodyResult.message[1]}`)
 
         failed++
 
         textResult.forEach((line, j) => {
-          if (!line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
+          if (line !== ` - Passed? __THE_TESTER_${test.name}_${i}__`) return;
   
           textResult[j] = ' - Passed? No. The body is incorrect.'
         })
@@ -398,7 +398,7 @@ async function run() {
       }
 
       if (res.statusCode !== 405) {
-        console.error(`[The Tester]: Error test ${test.name} failed.\n - Expected: 405\n - Actual: ${res.statusCode}`)
+        console.error(`[The Tester]: Error test ${test.name} failed.\n - Expected: 405\n - Actual  : ${res.statusCode}`)
 
         failed++
 
