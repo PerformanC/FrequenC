@@ -51,12 +51,12 @@ void httpserver_stop_server(struct httpserver *server) {
     if (server->sockets[i].socket == -1) continue;
 
     cthreads_thread_cancel(server->sockets[i].thread);
-    free(server->sockets[i].thread_data);
+    frequenc_unsafe_free(server->sockets[i].thread_data);
   }
 
   csocket_server_close(&server->server);
-  free(server->sockets);
-  free(server->available_sockets);
+  frequenc_unsafe_free(server->sockets);
+  frequenc_unsafe_free(server->available_sockets);
 }
 
 void _httpserver_add_available_socket(struct httpserver *server, int socket_index) {
@@ -74,7 +74,7 @@ void httpserver_disconnect_client(struct httpserver *server, struct csocket_serv
   csocket_close_client(client);
 
   cthreads_thread_cancel(server->sockets[socket_index].thread);
-  free(server->sockets[socket_index].thread_data);
+  frequenc_unsafe_free(server->sockets[socket_index].thread_data);
   server->sockets[socket_index].socket = -1;
   server->sockets[socket_index].upgraded = false;
 
@@ -327,8 +327,8 @@ size_t _calculate_response_length(struct httpserver_response *response) {
 
 void httpserver_send_response(struct httpserver_response *response) {
   size_t length = _calculate_response_length(response);
-
   char *response_string = frequenc_safe_malloc(length + 1);
+  size_t response_position = 0;
 
   snprintf(response_string, length, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
 
@@ -347,7 +347,7 @@ void httpserver_send_response(struct httpserver_response *response) {
 
   csocket_server_send(response->client, response_string, length);
 
-  free(response_string);
+  frequenc_unsafe_free(response_string);
 }
 
 void httpserver_upgrade_socket(struct httpserver *server, int socket_index) {

@@ -178,7 +178,7 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
 
   csocket_server_send(response->client, (char *)buffer, payload_start_index + response->payload_length);
 
-  free(buffer);
+  frequenc_unsafe_free(buffer);
 
   return;
 }
@@ -399,7 +399,7 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
 
   SSL_write(response->ssl, buffer, payload_start_index + message_length);
 
-  free(buffer);
+  frequenc_unsafe_free(buffer);
 
   return 0;
 }

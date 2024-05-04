@@ -170,7 +170,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
 
     goto exit_fail;
   }
-  free(http_request.string);
+  frequenc_unsafe_free(http_request.string);
 
   char packet[TCPLIMITS_PACKET_SIZE + 1];
 
@@ -309,7 +309,7 @@ int httpclient_unsafe_request(struct httpclient_request_params *request, struct 
 
     return -1;
   }
-  free(http_request.string);
+  frequenc_unsafe_free(http_request.string);
 
   char packet[TCPLIMITS_PACKET_SIZE + 1];
 
@@ -419,5 +419,5 @@ void httpclient_shutdown(struct httpclient_response *response) {
 }
 
 void httpclient_free(struct httpclient_response *response) {
-  if (response->body != NULL) free(response->body);
+  frequenc_safe_free(response->body);
 }

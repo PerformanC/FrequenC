@@ -6,13 +6,12 @@ const PASSWORD = 'youshallnotpass'
 const SECURE = false
 
 const VERSION = '1.0.0'
-const BRANCH = 'main'
+const BRANCH = 'unknown'
 const COMMIT = 'unknown'
-const COMMIT_TIME = -1
-const SOURCE_MANAGERS = []
+const SOURCE_MANAGERS = ['youtube']
 const FILTERS = []
 
-const ENCODED_TRACK = encodeURIComponent('QAAASwEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkBAAphcnR3b3JrVXJsAQAEaXNyYwAKc291cmNlTmFtZQ==')
+const ENCODED_TRACK = encodeURIComponent('QAAASgEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgAAA3VyaQEACmFydHdvcmtVcmwBAARpc3JjAApzb3VyY2VOYW1l')
 const DECODED_TRACK = {
   encoded: decodeURIComponent(ENCODED_TRACK),
   info: {
@@ -20,15 +19,15 @@ const DECODED_TRACK = {
     author: 'author',
     length: 123456789,
     identifier: 'identifier',
-    isStream: false,
+    is_stream: false,
     uri: 'uri',
-    artworkUrl: 'artworkUrl',
+    artwork_url: 'artworkUrl',
     isrc: 'isrc',
-    sourceName: 'sourceName'
+    source_name: 'sourceName'
   }
 }
 
-const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAOQEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgABAAN1cmkAAAAKc291cmNlTmFtZQ==')
+const ENCODED_TRACK_ENFORCED = encodeURIComponent('QAAAOAEABXRpdGxlAAZhdXRob3IAAAAAB1vNFQAKaWRlbnRpZmllcgAAA3VyaQAAAApzb3VyY2VOYW1l')
 const DECODED_TRACK_ENFORCED = {
   encoded: decodeURIComponent(ENCODED_TRACK_ENFORCED),
   info: {
@@ -36,9 +35,9 @@ const DECODED_TRACK_ENFORCED = {
     author: 'author',
     length: 123456789,
     identifier: 'identifier',
-    isStream: false,
+    is_stream: false,
     uri: 'uri',
-    sourceName: 'sourceName'
+    source_name: 'sourceName'
   }
 }
 
@@ -84,13 +83,11 @@ const DECODED_TRACK_ENFORCED = {
             minor: Number(VERSION.split('.')[1]),
             patch: Number(VERSION.split('.')[2])
           },
-          builtTime: -1,
           git: {
             branch: BRANCH,
-            commit: COMMIT,
-            commitTime: COMMIT_TIME
+            commit: COMMIT
           },
-          sourceManagers: SOURCE_MANAGERS,
+          source_managers: SOURCE_MANAGERS,
           filters: FILTERS
         }),
         type: 'json'

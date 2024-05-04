@@ -33,10 +33,7 @@ void *frequenc_safe_malloc(size_t size) {
     printf("[utils]: Failed to allocate memory of size %zu: ", size);
     perror("");
 
-    void *array[size];
-    array[10000001] = (void *)0x8;
-
-    // exit(1);
+    exit(1);
   }
 
   return pointer;
@@ -60,6 +57,10 @@ void frequenc_safe_free(void *pointer) {
 
     pointer = NULL;
   }
+}
+
+void frequenc_unsafe_free(void *pointer) {
+  free(pointer);
 }
 
 void frequenc_fast_copy(const char *src, char *dest, size_t size) {

@@ -5,8 +5,7 @@
 */
 
 #include <stdlib.h> // size_t, NULL
-#include <stdio.h> // printf
-#include <string.h> // strlen
+#include <stdarg.h> // va_list, va_start, va_end
 #include <unistd.h>
 
 #include "libtstr.h"
@@ -89,6 +88,25 @@ void tstr_append(char *str, const char *append, size_t *length, int limiter) {
   str[*length] = '\0';
 }
 
+/* printf-like function */
+void tstr_variadic_append(char *str, size_t *length, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+
+  char *buffer = NULL;
+  size_t buffer_length = 0;
+  // Discover the size of the buffer
+  buffer_length = vsnprintf(buffer, buffer_length, format, args);
+  buffer = malloc(buffer_length + 1);
+
+  // Write the buffer
+  vsnprintf(buffer, buffer_length + 1, format, args);
+  tstr_append(str, buffer, length, 0);
+
+  free(buffer);
+  va_end(args);
+}
+
 int tstr_find_amount(const char *str, const char *find) {
   int i = 0;
   int j = 0;
@@ -110,4 +128,10 @@ int tstr_find_amount(const char *str, const char *find) {
   }
 
   return amount;
+}
+
+void tstr_free(struct tstr_string *str) {
+  if (!str->allocated || str->string == NULL) return;
+
+  free(str->string);
 }

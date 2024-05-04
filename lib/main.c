@@ -337,7 +337,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmn_init(&parser);
     int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
     if (r <= 0) {
-      free(tokens);
+      frequenc_unsafe_free(tokens);
 
       printf("[main]: Failed to parse JSON: %d\n", r);
 
@@ -351,8 +351,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmnf_init(&loader);
     r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
     if (r <= 0) {
-      free(tokens);
-      free(pairs);
+      frequenc_unsafe_free(tokens);
+      frequenc_unsafe_free(pairs);
       
       printf("[main]: Failed to load JSON: %d\n", r);
 
@@ -360,8 +360,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     if (pairs->size == 0) {
-      free(pairs);
-      free(tokens);
+      frequenc_unsafe_free(pairs);
+      frequenc_unsafe_free(tokens);
 
       printf("[main]: No tracks found in the body.\n");
 
@@ -380,8 +380,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       struct frequenc_track_info decoded_track = { 0 };
       if (frequenc_decode_track(&decoded_track, encoded_track) == -1) {
         pjsonb_free(&tracks_json);
-        free(pairs);
-        free(tokens);
+        frequenc_unsafe_free(pairs);
+        frequenc_unsafe_free(tokens);
 
         goto bad_request;
       }
@@ -417,8 +417,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     pjsonb_free(&tracks_json);
-    free(pairs);
-    free(tokens);
+    frequenc_unsafe_free(pairs);
+    frequenc_unsafe_free(tokens);
   }
 
   else if (strncmp(request->path, "/v1/decodetrack", sizeof("/v1/decodetrack") - 1) == 0) {
@@ -441,7 +441,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     int status = frequenc_decode_track(&decoded_track, decoded_query);
 
     if (status == -1) {
-      free(decoded_query);
+      frequenc_unsafe_free(decoded_query);
 
       goto bad_request;
     }
@@ -478,7 +478,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     pjsonb_free(&decoded_track_json);
     frequenc_free_track_info(&decoded_track);
-    free(decoded_query);
+    frequenc_unsafe_free(decoded_query);
   }
 
   else if (strcmp(request->path, "/v1/encodetracks") == 0) {
@@ -499,7 +499,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmn_init(&parser);
     int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
     if (r <= 0) {
-      free(tokens);
+      frequenc_unsafe_free(tokens);
 
       printf("[main]: Failed to parse JSON: %d\n", r);
 
@@ -513,8 +513,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmnf_init(&loader);
     r = jsmnf_load_auto(&loader, request->body, tokens, num_tokens, &pairs, &num_pairs);
     if (r <= 0) {
-      free(pairs);
-      free(tokens);
+      frequenc_unsafe_free(pairs);
+      frequenc_unsafe_free(tokens);
       
       printf("[main]: Failed to load JSON: %d\n", r);
 
@@ -522,8 +522,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     if (pairs->size == 0) {
-      free(pairs);
-      free(tokens);
+      frequenc_unsafe_free(pairs);
+      frequenc_unsafe_free(tokens);
 
       printf("[main]: No tracks found in the body.\n");
 
@@ -542,8 +542,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (frequenc_json_to_track_info(&decoded_track, pairs, request->body, path, 1, sizeof(path) / sizeof(*path)) == -1) {
         frequenc_free_track_info(&decoded_track);
         pjsonb_free(&encoded_tracks_json);
-        free(pairs);
-        free(tokens);
+        frequenc_unsafe_free(pairs);
+        frequenc_unsafe_free(tokens);
 
         goto bad_request;
       }
@@ -552,8 +552,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (frequenc_encode_track(&decoded_track, &encoded_track) == -1) {
         frequenc_free_track_info(&decoded_track);
         pjsonb_free(&encoded_tracks_json);
-        free(pairs);
-        free(tokens);
+        frequenc_unsafe_free(pairs);
+        frequenc_unsafe_free(tokens);
 
         goto bad_request;
       }
@@ -561,7 +561,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       pjsonb_set_string(&encoded_tracks_json, NULL, encoded_track);
 
       frequenc_free_track_info(&decoded_track);
-      free(encoded_track);
+      frequenc_unsafe_free(encoded_track);
     }
 
     pjsonb_end(&encoded_tracks_json);
@@ -590,8 +590,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     pjsonb_free(&encoded_tracks_json);
-    free(pairs);
-    free(tokens);
+    frequenc_unsafe_free(pairs);
+    frequenc_unsafe_free(tokens);
   }
 
   else if (strcmp(request->path, "/v1/encodetrack") == 0) {
@@ -655,7 +655,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     frequenc_free_track_info(&decoded_track);
-    free(encoded_track);
+    frequenc_unsafe_free(encoded_track);
   }
 
   /* todo: identify bottleneck while doing loadtracks, possibly in httpclient */
@@ -705,8 +705,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     httpserver_send_response(&response);
 
-    if (result.allocated)
-      free(result.string);
+    tstr_free(&result);
   }
 
   else if (strncmp(request->path, "/v1/sessions/", sizeof("/v1/sessions") - 1) == 0) {
@@ -857,23 +856,25 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
       if (guild_info->vc_connection != NULL) {
         pdvoice_free(guild_info->vc_connection);
-        free(guild_info->vc_connection->guild_id);
-        free(guild_info->vc_connection);
+        frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+        frequenc_unsafe_free(guild_info->vc_connection);
+
         guild_info->vc_connection = NULL;
       }
 
       if (guild_info->vc_info != NULL) {
-        free(guild_info->vc_info->token);
-        free(guild_info->vc_info->endpoint);
-        free(guild_info->vc_info->session_id);
-        free(guild_info->vc_info);
+        frequenc_unsafe_free(guild_info->vc_info->token);
+        frequenc_unsafe_free(guild_info->vc_info->endpoint);
+        frequenc_unsafe_free(guild_info->vc_info->session_id);
+        frequenc_unsafe_free(guild_info->vc_info);
+
         guild_info->vc_info = NULL;
       }
 
       tablec_del(&session->guilds, guild_id_str);
 
-      free(deferenced_guild_bucket.value);
-      free(deferenced_guild_bucket.key);
+      frequenc_unsafe_free(deferenced_guild_bucket.value);
+      frequenc_unsafe_free(deferenced_guild_bucket.key);
 
       cthreads_mutex_unlock(&session->mutex);
 
@@ -919,7 +920,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (r <= 0) {
         cthreads_mutex_unlock(&session->mutex);
 
-        free(tokens);
+        frequenc_unsafe_free(tokens);
 
         printf("[main]: Failed to parse JSON: %d\n", r);
 
@@ -935,8 +936,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (r <= 0) {
         cthreads_mutex_unlock(&session->mutex);
 
-        free(tokens);
-        free(pairs);
+        frequenc_unsafe_free(tokens);
+        frequenc_unsafe_free(pairs);
         
         printf("[main]: Failed to load JSON: %d\n", r);
 
@@ -951,8 +952,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         if (token == NULL) {
           cthreads_mutex_unlock(&session->mutex);
 
-          free(tokens);
-          free(pairs);
+          frequenc_unsafe_free(tokens);
+          frequenc_unsafe_free(pairs);
 
           printf("[main]: No token field found.\n");
 
@@ -964,8 +965,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         if (endpoint == NULL) {
           cthreads_mutex_unlock(&session->mutex);
 
-          free(tokens);
-          free(pairs);
+          frequenc_unsafe_free(tokens);
+          frequenc_unsafe_free(pairs);
 
           printf("[main]: No endpoint field found.\n");
 
@@ -977,8 +978,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         if (discord_session_id == NULL) {
           cthreads_mutex_unlock(&session->mutex);
 
-          free(tokens);
-          free(pairs);
+          frequenc_unsafe_free(tokens);
+          frequenc_unsafe_free(pairs);
 
           printf("[main]: No session_id field found.\n");
 
@@ -993,8 +994,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         frequenc_fast_copy(request->body + endpoint->v.pos, voice_endpoint, endpoint->v.len);
         frequenc_fast_copy(request->body + discord_session_id->v.pos, voice_session_id, discord_session_id->v.len);
 
-        free(tokens);
-        free(pairs);
+        frequenc_unsafe_free(tokens);
+        frequenc_unsafe_free(pairs);
 
         guild_info->vc_info = frequenc_safe_malloc(sizeof(struct client_guild_vc_info));
         guild_info->vc_info->token = voice_token;
@@ -1033,8 +1034,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         return;
       }
 
-      free(tokens);
-      free(pairs);
+      frequenc_unsafe_free(tokens);
+      frequenc_unsafe_free(pairs);
 
       goto bad_request;
     }
@@ -1149,21 +1150,23 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
 
     if (guild_info->vc_connection != NULL) {
       pdvoice_free(guild_info->vc_connection);
-      free(guild_info->vc_connection->guild_id);
-      free(guild_info->vc_connection);
+      frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+      frequenc_unsafe_free(guild_info->vc_connection);
+
       guild_info->vc_connection = NULL;
     }
 
     if (guild_info->vc_info != NULL) {
-      free(guild_info->vc_info->token);
-      free(guild_info->vc_info->endpoint);
-      free(guild_info->vc_info->session_id);
-      free(guild_info->vc_info);
+      frequenc_unsafe_free(guild_info->vc_info->token);
+      frequenc_unsafe_free(guild_info->vc_info->endpoint);
+      frequenc_unsafe_free(guild_info->vc_info->session_id);
+      frequenc_unsafe_free(guild_info->vc_info);
+
       guild_info->vc_info = NULL;
     }
 
-    free(bucket->key);
-    free(bucket->value);
+    frequenc_unsafe_free(bucket->key);
+    frequenc_unsafe_free(bucket->value);
   }
 
   tablec_cleanup(&session->guilds);
@@ -1172,8 +1175,8 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
   cthreads_mutex_unlock(&session->mutex);
   cthreads_mutex_destroy(&session->mutex);
 
-  free(session);
-  free(session_id);
+  frequenc_unsafe_free(session);
+  frequenc_unsafe_free(session_id);
 
   return;
 }
@@ -1200,29 +1203,31 @@ void handle_sig_int(int signal) {
 
       if (guild_info->vc_connection != NULL) {
         pdvoice_free(guild_info->vc_connection);
-        free(guild_info->vc_connection->guild_id);
-        free(guild_info->vc_connection);
+        frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+        frequenc_unsafe_free(guild_info->vc_connection);
+
         guild_info->vc_connection = NULL;
       }
 
       if (guild_info->vc_info != NULL) {
-        free(guild_info->vc_info->token);
-        free(guild_info->vc_info->endpoint);
-        free(guild_info->vc_info->session_id);
-        free(guild_info->vc_info);
+        frequenc_unsafe_free(guild_info->vc_info->token);
+        frequenc_unsafe_free(guild_info->vc_info->endpoint);
+        frequenc_unsafe_free(guild_info->vc_info->session_id);
+        frequenc_unsafe_free(guild_info->vc_info);
+
         guild_info->vc_info = NULL;
       }
 
-      free(guild_bucket.key);
-      free(guild_bucket.value);
+      frequenc_unsafe_free(guild_bucket.key);
+      frequenc_unsafe_free(guild_bucket.value);
     }
 
     printf("[main]: Found data in the hashtable.\n - Key: %s\n - Value: %p\n", bucket.key, bucket.value);
 
-    free(client_auth->guilds.buckets);
+    frequenc_unsafe_free(client_auth->guilds.buckets);
 
-    free(bucket.key);
-    free(bucket.value);
+    frequenc_unsafe_free(bucket.key);
+    frequenc_unsafe_free(bucket.value);
 
     detected = true;
   }

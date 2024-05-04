@@ -130,7 +130,7 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
       http_request->body_length = snprintf(http_request->body, (content_length + 1), "%s", request + headers_end.end + 4);
 
       if (http_request->body_length != (size_t)content_length) {
-        free(http_request->body);
+        frequenc_unsafe_free(http_request->body);
 
         return -1;
       }
@@ -259,7 +259,7 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
     http_response->body_length = snprintf(http_response->body, (content_length + 1), "%s", request + headers_end.end + 4);
 
     if (http_response->body_length != (size_t)content_length) {
-      free(http_response->body);
+      frequenc_unsafe_free(http_response->body);
 
       return -1;
     }

@@ -54,16 +54,20 @@ void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result)
 
 int frequenc_decode_track(struct frequenc_track_info *result, const char *track) {
   int output_length = b64_decoded_size(track, strlen(track)) + 1;
+  printf("Output length: %d\n", output_length);
   unsigned char *output = frequenc_safe_malloc(output_length * sizeof(unsigned char));
+  printf("Output length: %d\n", output_length);
   memset(output, 0, output_length);
+  printf("Output length: %d\n", output_length);
 
   if (b64_decode(track, output, output_length) == 0) {
     printf("[track]: Failed to decode track.\n - Reason: Invalid base64 string.\n - Input: %s\n", track);
 
-    free(output);
+    frequenc_unsafe_free(output);
 
     return -1;
   }
+  printf("Output length (2): %d\n", output_length);
   output[output_length - 1] = '\0';
 
   struct _decoder_class buf = { 0 };
@@ -72,10 +76,12 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
 
   int buffer_length = _read_int(&buf) & ~(1 << 30);
 
+  printf("Buffer length: %d\n", buffer_length);
+
   if (buffer_length != output_length - 4 - 1) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %d\n", buffer_length, output_length - 4 - 1);
 
-    free(output);
+    frequenc_unsafe_free(output);
 
     return -1;
   }
@@ -85,38 +91,52 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
   if (version != 1) {
     printf("[track]: Failed to decode track.\n - Reason: Unknown track version.\n - Expected: 1\n - Actual: %d\n", version);
 
-    free(output);
+    frequenc_unsafe_free(output);
 
     return -1;
   }
 
   _read_utf(&buf, &result->title);
+  printf("Buffer position after title: %d\n", buf.position);
   _read_utf(&buf, &result->author);
+  printf("Buffer position after author: %d\n", buf.position);
   if ((result->length = _read_long(&buf)) == 0) return -1;
+  printf("Buffer position after length: %d\n", buf.position);
   _read_utf(&buf, &result->identifier);
+  printf("Buffer position after identifier: %d\n", buf.position);
   result->is_stream = _read_byte(&buf) == 1;
+  printf("Buffer position after is_stream: %d\n", buf.position);
   _read_utf(&buf, &result->uri);
+  printf("Buffer position after uri: %d\n", buf.position);
   if (_read_byte(&buf)) _read_utf(&buf, &result->artwork_url);
   else {
-    // result->artwork_url = NULL;
+    result->artwork_url.string = NULL;
+    result->artwork_url.length = 0;
+    result->artwork_url.allocated = false;
   }
+  printf("Buffer position after artwork_url: %d\n", buf.position);
   if (_read_byte(&buf)) _read_utf(&buf, &result->isrc);
   else {
-    // result->isrc = NULL;
+    result->isrc.string = NULL;
+    result->isrc.length = 0;
+    result->isrc.allocated = false;
   }
+  printf("Buffer position after isrc: %d\n", buf.position);
   _read_utf(&buf, &result->source_name);
+
+  printf("Buffer position: %d (%s)\n", buf.position, result->source_name.string);
 
   if (buf.position != output_length - 1) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %d\n", buf.position, output_length - 1);
 
-    free(output);
+    frequenc_unsafe_free(output);
 
     return -1;
   }
 
   printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", result->version, track, result->title.string, result->author.string, result->length, result->identifier.string, result->is_stream ? "true" : "false", result->uri.string, result->artwork_url.length ? result->artwork_url.string : "null", result->isrc.length ? result->isrc.string : "null", result->source_name.string);
 
-  free(output);
+  frequenc_unsafe_free(output);
 
   return 0;
 }
@@ -230,7 +250,7 @@ int frequenc_encode_track(struct frequenc_track_info *track, char **result) {
   b64_encode(buffer, *result, position);
   (*result)[base64Length] = '\0'; 
  
-  free(buffer);
+  frequenc_unsafe_free(buffer);
 
   return base64Length;
 }
@@ -295,7 +315,7 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
   char *length_str = frequenc_safe_malloc(length->v.len + 1);
   frequenc_fast_copy(json + length->v.pos, length_str, length->v.len);
   long length_num = strtol(length_str, NULL, 10);
-  free(length_str);
+  frequenc_unsafe_free(length_str);
 
   path[pathLen] = "identifier";
   jsmnf_pair *identifier = jsmnf_find_path(pairs, json, path, pathSize);
@@ -385,15 +405,11 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
 }
 
 void frequenc_free_track_info(struct frequenc_track_info *track_info) {
-  frequenc_safe_free(track_info->title.string);
-  frequenc_safe_free(track_info->author.string);
-  frequenc_safe_free(track_info->identifier.string);
-  frequenc_safe_free(track_info->uri.string);
-  if (track_info->artwork_url.length != 0) {
-    frequenc_safe_free(track_info->artwork_url.string);
-  }
-  if (track_info->isrc.length != 0) {
-    frequenc_safe_free(track_info->isrc.string);
-  }
-  frequenc_safe_free(track_info->source_name.string);
+  tstr_free(&track_info->title);
+  tstr_free(&track_info->author);
+  tstr_free(&track_info->identifier);
+  tstr_free(&track_info->uri);
+  tstr_free(&track_info->artwork_url);
+  tstr_free(&track_info->isrc);
+  tstr_free(&track_info->source_name);
 }
