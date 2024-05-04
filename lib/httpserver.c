@@ -225,7 +225,7 @@ void *httpserver_get_socket_data(struct httpserver *server, int socket_index) {
   return server->sockets[socket_index].data;
 }
 
-char *_getStatusText(int status) {
+char *_httpserver_get_status_text(int status) {
   switch (status) {
     case 100: return "Continue";
     case 101: return "Switching Protocols";
@@ -308,7 +308,7 @@ char *_getStatusText(int status) {
 size_t _calculate_response_length(struct httpserver_response *response) {
   size_t length = 0;
   
-  length += snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
+  length += snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", response->status, _httpserver_get_status_text(response->status));
 
   for (int i = 0; i < response->headers_length; i++) {
     length += strlen(response->headers[i].key);
@@ -330,19 +330,27 @@ void httpserver_send_response(struct httpserver_response *response) {
   char *response_string = frequenc_safe_malloc(length + 1);
   size_t response_position = 0;
 
-  snprintf(response_string, length, "HTTP/1.1 %d %s\r\n", response->status, _getStatusText(response->status));
+  tstr_append(response_string, "HTTP/1.1 ", &response_position, 0);
+  
+  char status_text[3 + 1];
+  frequenc_stringify_int(response->status, status_text, sizeof(status_text));
+  tstr_append(response_string, status_text, &response_position, 0);
+
+  tstr_append(response_string, " ", &response_position, 0);
+
+  tstr_append(response_string, _httpserver_get_status_text(response->status), &response_position, 0);
 
   for (int i = 0; i < response->headers_length; i++) {
-    strcat(response_string, response->headers[i].key);
-    strcat(response_string, ": ");
-    strcat(response_string, response->headers[i].value);
-    strcat(response_string, "\r\n");
+    tstr_append(response_string, response->headers[i].key, &response_position, 0);
+    tstr_append(response_string, ": ", &response_position, 0);
+    tstr_append(response_string, response->headers[i].value, &response_position, 0);
+    tstr_append(response_string, "\r\n", &response_position, 0);
   }
 
-  strcat(response_string, "\r\n");
+  tstr_append(response_string, "\r\n", &response_position, 0);
 
   if (response->body != NULL) {
-    strncat(response_string, response->body, response->body_length);
+    tstr_append(response_string, response->body, &response_position, 0);
   }
 
   csocket_server_send(response->client, response_string, length);

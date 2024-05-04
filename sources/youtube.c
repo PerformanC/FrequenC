@@ -179,7 +179,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   struct pjsonb track_json;
   pjsonb_init(&track_json, PJSONB_OBJECT);
 
-  pjsonb_set_string(&track_json, "loadType", "search");
+  pjsonb_set_string(&track_json, "loadType", "search", sizeof("search") - 1);
 
   pjsonb_enter_array(&track_json, "data");
 
@@ -350,12 +350,12 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
         },
       };
 
-      char *encoded_track = NULL;
+      struct tstr_string encoded_track = { 0 };
       frequenc_encode_track(&track_info, &encoded_track);
 
-      frequenc_track_info_to_json(&track_info, encoded_track, &track_json, false);
+      frequenc_track_info_to_json(&track_info, &encoded_track, &track_json, false);
 
-      frequenc_unsafe_free(encoded_track);
+      tstr_free(&encoded_track);
       frequenc_free_track_info(&track_info);
     }
 

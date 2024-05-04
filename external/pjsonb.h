@@ -37,10 +37,10 @@ void pjsonb_set_float(struct pjsonb *builder, const char *key, float value);
 
 void pjsonb_set_bool(struct pjsonb *builder, const char *key, int value);
 
-void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *value);
+void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *value, size_t value_length);
 
-#define pjsonb_set_if(builder, type, condition, key, value) \
-  if (condition) pjsonb_set_ ## type(builder, key, value)
+#define pjsonb_set_if(builder, type, condition, key, value, value_length) \
+  if (condition) pjsonb_set_ ## type(builder, key, value, value_length)
 
 void pjsonb_enter_object(struct pjsonb *builder, const char *key);
 

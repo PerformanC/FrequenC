@@ -8,7 +8,6 @@
 #include "types.h"
 
 struct frequenc_track_info {
-  int version;
   struct tstr_string title;
   struct tstr_string author;
   uint64_t length;
@@ -20,13 +19,13 @@ struct frequenc_track_info {
   struct tstr_string source_name;
 };
 
-int frequenc_decode_track(struct frequenc_track_info *result, const char *track);
+int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_string *track);
 
 void frequenc_free_track(struct frequenc_track_info *track);
 
-int frequenc_encode_track(struct frequenc_track_info *track, char **result);
+void frequenc_encode_track(struct frequenc_track_info *track, struct tstr_string *result);
 
-void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, struct pjsonb *track_json, bool unique);
+void frequenc_track_info_to_json(struct frequenc_track_info *track_info, struct tstr_string *encoded, struct pjsonb *track_json, bool unique);
 
 void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json);
 

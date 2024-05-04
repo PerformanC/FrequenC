@@ -374,11 +374,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     for (int i = 0; i < pairs->size; i++) {
       jsmnf_pair *f = &pairs->fields[i];
 
-      char encoded_track[512];
-      snprintf(encoded_track, sizeof(encoded_track), "%.*s", (int)f->v.len, request->body + f->v.pos);
-
       struct frequenc_track_info decoded_track = { 0 };
-      if (frequenc_decode_track(&decoded_track, encoded_track) == -1) {
+      struct tstr_string encoded_track_str = {
+        .string = request->body + f->v.pos,
+        .length = f->v.len,
+        .allocated = false
+      };
+
+      if (frequenc_decode_track(&decoded_track, &encoded_track_str) == -1) {
         pjsonb_free(&tracks_json);
         frequenc_unsafe_free(pairs);
         frequenc_unsafe_free(tokens);
@@ -434,14 +437,20 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     if (query == NULL || query->value[0] == '\0') goto bad_request;
 
-    char *decoded_query = frequenc_safe_malloc((urldecoder_decode_length(query->value) + 1) * sizeof(char));
-    urldecoder_decode(decoded_query, query->value);
+    size_t query_length = urldecoder_decode_length(query->value);
+    /* ALERT: non-NULL terminated */
+    struct tstr_string decoded_query = {
+      .string = frequenc_safe_malloc(query_length * sizeof(char)),
+      .length = query_length,
+      .allocated = true
+    };
+    urldecoder_decode(decoded_query.string, query->value);
 
-    struct frequenc_track_info decoded_track;
-    int status = frequenc_decode_track(&decoded_track, decoded_query);
+    struct frequenc_track_info decoded_track = { 0 };
+    int status = frequenc_decode_track(&decoded_track, &decoded_query);
 
     if (status == -1) {
-      frequenc_unsafe_free(decoded_query);
+      tstr_free(&decoded_query);
 
       goto bad_request;
     }
@@ -449,7 +458,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct pjsonb decoded_track_json;
     pjsonb_init(&decoded_track_json, PJSONB_OBJECT);
 
-    frequenc_track_info_to_json(&decoded_track, decoded_query, &decoded_track_json, true);
+    frequenc_track_info_to_json(&decoded_track, &decoded_query, &decoded_track_json, true);
 
     pjsonb_end(&decoded_track_json);
 
@@ -478,7 +487,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     pjsonb_free(&decoded_track_json);
     frequenc_free_track_info(&decoded_track);
-    frequenc_unsafe_free(decoded_query);
+    tstr_free(&decoded_query);
   }
 
   else if (strcmp(request->path, "/v1/encodetracks") == 0) {
@@ -548,20 +557,13 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         goto bad_request;
       }
 
-      char *encoded_track = NULL;
-      if (frequenc_encode_track(&decoded_track, &encoded_track) == -1) {
-        frequenc_free_track_info(&decoded_track);
-        pjsonb_free(&encoded_tracks_json);
-        frequenc_unsafe_free(pairs);
-        frequenc_unsafe_free(tokens);
+      struct tstr_string encoded_track = { 0 };
+      frequenc_encode_track(&decoded_track, &encoded_track);
 
-        goto bad_request;
-      }
-
-      pjsonb_set_string(&encoded_tracks_json, NULL, encoded_track);
+      pjsonb_set_string(&encoded_tracks_json, NULL, encoded_track.string, encoded_track.length);
 
       frequenc_free_track_info(&decoded_track);
-      frequenc_unsafe_free(encoded_track);
+      tstr_free(&encoded_track);
     }
 
     pjsonb_end(&encoded_tracks_json);
@@ -629,10 +631,11 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    char *encoded_track = NULL;
+    // char *encoded_track = NULL;
+    struct tstr_string encoded_track = { 0 };
     char payload_length[4];
-    int encoded_track_length = frequenc_encode_track(&decoded_track, &encoded_track);
-    frequenc_stringify_int(encoded_track_length, payload_length, sizeof(payload_length));
+    frequenc_encode_track(&decoded_track, &encoded_track);
+    frequenc_stringify_int(encoded_track.length, payload_length, sizeof(payload_length));
 
     struct httpserver_response response = {
       .client = client,
@@ -648,14 +651,14 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         }
       },
       .headers_length = 2,
-      .body = encoded_track,
-      .body_length = encoded_track_length
+      .body = encoded_track.string,
+      .body_length = encoded_track.length
     };
 
     httpserver_send_response(&response);
 
     frequenc_free_track_info(&decoded_track);
-    frequenc_unsafe_free(encoded_track);
+    tstr_free(&encoded_track);
   }
 
   /* todo: identify bottleneck while doing loadtracks, possibly in httpclient */
@@ -789,9 +792,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (guild_info->vc_info != NULL) {
         pjsonb_enter_object(&json_response, "voice");
 
-        pjsonb_set_string(&json_response, "token", guild_info->vc_info->token);
-        pjsonb_set_string(&json_response, "endpoint", guild_info->vc_info->endpoint);
-        pjsonb_set_string(&json_response, "session_id", guild_info->vc_info->session_id);
+        pjsonb_set_string(&json_response, "token", guild_info->vc_info->token, strlen(guild_info->vc_info->token));
+        pjsonb_set_string(&json_response, "endpoint", guild_info->vc_info->endpoint, strlen(guild_info->vc_info->endpoint));
+        pjsonb_set_string(&json_response, "session_id", guild_info->vc_info->session_id, strlen(guild_info->vc_info->session_id));
 
         pjsonb_leave_object(&json_response);
       }

@@ -47,10 +47,10 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
   cthreads_mutex_lock(connection->mutex);
 
   pjsonb_enter_object(&jsonb, "d");
-  pjsonb_set_string(&jsonb, "server_id", connection->guild_id);
-  pjsonb_set_string(&jsonb, "user_id", connection->bot_id);
-  pjsonb_set_string(&jsonb, "token", connection->ws_connection_info->token);
-  pjsonb_set_string(&jsonb, "session_id", connection->ws_connection_info->session_id);
+  pjsonb_set_string(&jsonb, "server_id", connection->guild_id, strlen(connection->guild_id));
+  pjsonb_set_string(&jsonb, "user_id", connection->bot_id, strlen(connection->bot_id));
+  pjsonb_set_string(&jsonb, "token", connection->ws_connection_info->token, strlen(connection->ws_connection_info->token));
+  pjsonb_set_string(&jsonb, "session_id", connection->ws_connection_info->session_id, strlen(connection->ws_connection_info->session_id));
   pjsonb_leave_object(&jsonb);
 
   cthreads_mutex_unlock(connection->mutex);

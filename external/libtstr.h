@@ -25,8 +25,6 @@ void tstr_find_between(struct tstr_string_token *result, const char *str, const 
 
 void tstr_append(char *str, const char *append, size_t *length, int limiter);
 
-void tstr_variadic_append(char *str, size_t *length, const char *format, ...);
-
 int tstr_find_amount(const char *str, const char *find);
 
 void tstr_free(struct tstr_string *str);

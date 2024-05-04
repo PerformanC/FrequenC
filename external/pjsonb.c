@@ -144,9 +144,7 @@ void pjsonb_set_bool(struct pjsonb *builder, const char *key, int value) {
   builder->key_state = PJSONB_TO_CLOSE;
 }
 
-void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *value) {
-  int value_length = strlen(value);
-
+void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *value, size_t value_length) {
   if (key == NULL) {
     builder->string = realloc(builder->string, builder->position + value_length + 3);
 

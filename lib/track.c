@@ -52,31 +52,24 @@ void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result)
   frequenc_fast_copy((char *)decoder_class->buffer + start, result->string, len);
 }
 
-int frequenc_decode_track(struct frequenc_track_info *result, const char *track) {
-  int output_length = b64_decoded_size(track, strlen(track)) + 1;
-  printf("Output length: %d\n", output_length);
+int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_string *track) {
+  int output_length = b64_decoded_size(track->string, track->length) + 1;
   unsigned char *output = frequenc_safe_malloc(output_length * sizeof(unsigned char));
-  printf("Output length: %d\n", output_length);
   memset(output, 0, output_length);
-  printf("Output length: %d\n", output_length);
 
-  if (b64_decode(track, output, output_length) == 0) {
-    printf("[track]: Failed to decode track.\n - Reason: Invalid base64 string.\n - Input: %s\n", track);
+  if (b64_decode(track->string, track->length, output, output_length) == 0) {
+    printf("[track]: Failed to decode track.\n - Reason: Invalid base64 string.\n - Input: %.*s\n", (int)track->length, track->string);
 
     frequenc_unsafe_free(output);
 
     return -1;
   }
-  printf("Output length (2): %d\n", output_length);
-  output[output_length - 1] = '\0';
 
   struct _decoder_class buf = { 0 };
   buf.position = 0;
   buf.buffer = output;
 
   int buffer_length = _read_int(&buf) & ~(1 << 30);
-
-  printf("Buffer length: %d\n", buffer_length);
 
   if (buffer_length != output_length - 4 - 1) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %d\n", buffer_length, output_length - 4 - 1);
@@ -97,34 +90,24 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
   }
 
   _read_utf(&buf, &result->title);
-  printf("Buffer position after title: %d\n", buf.position);
   _read_utf(&buf, &result->author);
-  printf("Buffer position after author: %d\n", buf.position);
   if ((result->length = _read_long(&buf)) == 0) return -1;
-  printf("Buffer position after length: %d\n", buf.position);
   _read_utf(&buf, &result->identifier);
-  printf("Buffer position after identifier: %d\n", buf.position);
   result->is_stream = _read_byte(&buf) == 1;
-  printf("Buffer position after is_stream: %d\n", buf.position);
   _read_utf(&buf, &result->uri);
-  printf("Buffer position after uri: %d\n", buf.position);
   if (_read_byte(&buf)) _read_utf(&buf, &result->artwork_url);
   else {
     result->artwork_url.string = NULL;
     result->artwork_url.length = 0;
     result->artwork_url.allocated = false;
   }
-  printf("Buffer position after artwork_url: %d\n", buf.position);
   if (_read_byte(&buf)) _read_utf(&buf, &result->isrc);
   else {
     result->isrc.string = NULL;
     result->isrc.length = 0;
     result->isrc.allocated = false;
   }
-  printf("Buffer position after isrc: %d\n", buf.position);
   _read_utf(&buf, &result->source_name);
-
-  printf("Buffer position: %d (%s)\n", buf.position, result->source_name.string);
 
   if (buf.position != output_length - 1) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %d\n", buf.position, output_length - 1);
@@ -134,7 +117,7 @@ int frequenc_decode_track(struct frequenc_track_info *result, const char *track)
     return -1;
   }
 
-  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", result->version, track, result->title.string, result->author.string, result->length, result->identifier.string, result->is_stream ? "true" : "false", result->uri.string, result->artwork_url.length ? result->artwork_url.string : "null", result->isrc.length ? result->isrc.string : "null", result->source_name.string);
+  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %.*s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", version, (int)track->length, track->string, result->title.string, result->author.string, result->length, result->identifier.string, result->is_stream ? "true" : "false", result->uri.string, result->artwork_url.length ? result->artwork_url.string : "null", result->isrc.length ? result->isrc.string : "null", result->source_name.string);
 
   frequenc_unsafe_free(output);
 
@@ -225,7 +208,7 @@ size_t _calculate_track_size(struct frequenc_track_info *track) {
   return size;
 }
 
-int frequenc_encode_track(struct frequenc_track_info *track, char **result) {
+void frequenc_encode_track(struct frequenc_track_info *track, struct tstr_string *result) {
   size_t position = 4;
   unsigned char *buffer = frequenc_safe_malloc(_calculate_track_size(track) * sizeof(unsigned char));
 
@@ -244,33 +227,29 @@ int frequenc_encode_track(struct frequenc_track_info *track, char **result) {
 
   _internal_write_int(buffer, 0, ((uint32_t)position - 4) | (1 << 30));
 
-  int base64Length = b64_encoded_size(position);
-
-  *result = frequenc_safe_malloc((base64Length + 1) * sizeof(char));
-  b64_encode(buffer, *result, position);
-  (*result)[base64Length] = '\0'; 
+  result->string = frequenc_safe_malloc(b64_encoded_size(position) * sizeof(char));
+  b64_encode(buffer, result->string, position);
  
   frequenc_unsafe_free(buffer);
-
-  return base64Length;
 }
 
-void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *encoded, struct pjsonb *track_json, bool unique) {
+void frequenc_track_info_to_json(struct frequenc_track_info *track_info, struct tstr_string *encoded, struct pjsonb *track_json, bool unique) {
   if (unique == false) pjsonb_enter_object(track_json, NULL);
 
-  pjsonb_set_string(track_json, "encoded", encoded);
+  pjsonb_set_string(track_json, "encoded", encoded->string, encoded->length);
 
+  /* TODO: Use frequenc_partial_track_info_to_json */
   pjsonb_enter_object(track_json, "info");
 
-  pjsonb_set_string(track_json, "title", track_info->title.string);
-  pjsonb_set_string(track_json, "author", track_info->author.string);
+  pjsonb_set_string(track_json, "title", track_info->title.string, track_info->title.length);
+  pjsonb_set_string(track_json, "author", track_info->author.string, track_info->author.length);
   pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier.string);
+  pjsonb_set_string(track_json, "identifier", track_info->identifier.string, track_info->identifier.length);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
-  pjsonb_set_string(track_json, "uri", track_info->uri.string);
-  pjsonb_set_if(track_json, string, track_info->artwork_url.length != 0, "artwork_url", track_info->artwork_url.string);
-  pjsonb_set_if(track_json, string, track_info->isrc.length != 0, "isrc", track_info->isrc.string);
-  pjsonb_set_string(track_json, "source_name", track_info->source_name.string);
+  pjsonb_set_string(track_json, "uri", track_info->uri.string, track_info->uri.length);
+  pjsonb_set_if(track_json, string, track_info->artwork_url.length != 0, "artwork_url", track_info->artwork_url.string, track_info->artwork_url.length);
+  pjsonb_set_if(track_json, string, track_info->isrc.length != 0, "isrc", track_info->isrc.string, track_info->isrc.length);
+  pjsonb_set_string(track_json, "source_name", track_info->source_name.string, track_info->source_name.length);
 
   pjsonb_leave_object(track_json);
 
@@ -280,15 +259,15 @@ void frequenc_track_info_to_json(struct frequenc_track_info *track_info, char *e
 void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json) {
   pjsonb_enter_object(track_json, NULL);
 
-  pjsonb_set_string(track_json, "title", track_info->title.string);
-  pjsonb_set_string(track_json, "author", track_info->author.string);
+  pjsonb_set_string(track_json, "title", track_info->title.string, track_info->title.length);
+  pjsonb_set_string(track_json, "author", track_info->author.string, track_info->author.length);
   pjsonb_set_int(track_json, "length", track_info->length);
-  pjsonb_set_string(track_json, "identifier", track_info->identifier.string);
+  pjsonb_set_string(track_json, "identifier", track_info->identifier.string, track_info->identifier.length);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
-  pjsonb_set_string(track_json, "uri", track_info->uri.string);
-  pjsonb_set_if(track_json, string, track_info->artwork_url.length != 0, "artwork_url", track_info->artwork_url.string);
-  pjsonb_set_if(track_json, string, track_info->isrc.length != 0, "isrc", track_info->isrc.string);
-  pjsonb_set_string(track_json, "source_name", track_info->source_name.string);
+  pjsonb_set_string(track_json, "uri", track_info->uri.string, track_info->uri.length);
+  pjsonb_set_if(track_json, string, track_info->artwork_url.length != 0, "artwork_url", track_info->artwork_url.string, track_info->artwork_url.length);
+  pjsonb_set_if(track_json, string, track_info->isrc.length != 0, "isrc", track_info->isrc.string, track_info->isrc.length);
+  pjsonb_set_string(track_json, "source_name", track_info->source_name.string, track_info->source_name.length);
 
   pjsonb_leave_object(track_json);
 }

@@ -1,7 +1,11 @@
 /*
   License available on: licenses/base64.license
 
-  Modified to remove the need for malloc.
+  Modifications:
+    - Remove the need for malloc.
+    - Added "len" parameter to b64_decode.
+    - Removed NULL termination from b64_encode.
+
   Modified by: @ThePedroo
 */
 
@@ -14,6 +18,6 @@ char *b64_encode(const unsigned char *in, char *out, size_t len);
 
 size_t b64_decoded_size(const char *in, size_t length);
 
-int b64_decode(const char *in, unsigned char *out, size_t outlen);
+int b64_decode(const char *in, size_t len, unsigned char *out, size_t outlen);
 
 #endif
