@@ -477,7 +477,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     pjsonb_free(&decoded_track_json);
-    frequenc_free_track(&decoded_track);
+    frequenc_free_track_info(&decoded_track);
     free(decoded_query);
   }
 

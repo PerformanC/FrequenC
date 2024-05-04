@@ -9,15 +9,15 @@
 
 struct frequenc_track_info {
   int version;
-  struct tstr_string *title;
-  struct tstr_string *author;
+  struct tstr_string title;
+  struct tstr_string author;
   uint64_t length;
-  struct tstr_string *identifier;
+  struct tstr_string identifier;
   bool is_stream;
-  struct tstr_string *uri;
-  struct tstr_string *artwork_url;
-  struct tstr_string *isrc;
-  struct tstr_string *source_name;
+  struct tstr_string uri;
+  struct tstr_string artwork_url;
+  struct tstr_string isrc;
+  struct tstr_string source_name;
 };
 
 int frequenc_decode_track(struct frequenc_track_info *result, const char *track);
