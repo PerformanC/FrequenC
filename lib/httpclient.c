@@ -21,9 +21,10 @@
 size_t _httpclient_calculate_request_length(struct httpclient_request_params *request) {
   size_t length = 0;
 
+  length += sizeof("HTTP/1.1 ") - 1;
   length += strlen(request->method) + 1;
   length += strlen(request->path) + 1;
-  length += (sizeof("HTTP/1.1") - 1) + (sizeof("\r\nHost: \r\n") - 1) + strlen(request->host);
+  length += (sizeof("\r\nHost: \r\n") - 1) + strlen(request->host);
 
   for (int i = 0; i < request->headers_length; i++) {
     length += strlen(request->headers[i].key);
@@ -33,8 +34,7 @@ size_t _httpclient_calculate_request_length(struct httpclient_request_params *re
   }
 
   if (request->body != NULL) {
-    length += (sizeof("Content-Length: \r\n\r\n") - 1) + strlen(request->body);
-    length += snprintf(NULL, 0, "%ld", strlen(request->body));
+    length += (sizeof("Content-Length: \r\n\r\n") - 1) + snprintf(NULL, 0, "%zu", request->body->length) + request->body->length;
   } else {
     length += 2;
   }
@@ -43,11 +43,9 @@ size_t _httpclient_calculate_request_length(struct httpclient_request_params *re
 }
 
 void _httpclient_build_request(struct httpclient_request_params *request, struct tstr_string *response) {
-  /* todo: re-use body strlen */
   size_t length = _httpclient_calculate_request_length(request);
   size_t current_length = 0;
-  /* todo: use non-NULL terminated strings (?) */
-  char *request_string = frequenc_safe_malloc((length + 1) * sizeof(char));
+  char *request_string = frequenc_safe_malloc(length * sizeof(char));
 
   current_length = snprintf(request_string, length, "%s %s HTTP/1.1\r\nHost: %s\r\n", request->method, request->path, request->host);
 
@@ -56,12 +54,10 @@ void _httpclient_build_request(struct httpclient_request_params *request, struct
   }
 
   if (request->body != NULL) {
-    current_length += snprintf(request_string + current_length, (length + 1) - current_length, "Content-Length: %ld\r\n\r\n%s", strlen(request->body), request->body);
+    current_length += snprintf(request_string + current_length, (length + 1) - current_length, "Content-Length: %zu\r\n\r\n%.*s", request->body->length, (int)request->body->length, request->body->string);
   } else {
     current_length += snprintf(request_string + current_length, (length + 1) - current_length, "\r\n");
   }
-
-  request_string[current_length] = '\0';
 
   response->string = request_string;
   response->length = length;
@@ -172,7 +168,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   }
   frequenc_unsafe_free(http_request.string);
 
-  char packet[TCPLIMITS_PACKET_SIZE + 1];
+  char packet[TCPLIMITS_PACKET_SIZE];
 
   int len = SSL_read(http_response->ssl, packet, TCPLIMITS_PACKET_SIZE);
   if (len == -1) {
@@ -180,12 +176,11 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
 
     goto exit_fail;
   }
-  packet[len] = '\0';
 
   struct httpparser_header headers[30];
   httpparser_init_response((struct httpparser_response *)http_response, headers, 30);
 
-  if (httpparser_parse_response((struct httpparser_response *)http_response, packet) == -1) {
+  if (httpparser_parse_response((struct httpparser_response *)http_response, packet, len) == -1) {
     printf("[https-client]: Failed to parse HTTP response.\n");
 
     goto exit_fail;
@@ -212,8 +207,6 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
         goto exit_fail;
       }
 
-      packet[len] = '\0';
-
       tstr_append(http_response->body, packet, &http_response->body_length, len);
       chunk_size_left -= len;
 
@@ -237,11 +230,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
         goto exit_fail;
       }
 
-      packet[len] = '\0';
-
-      if (packet[0] == '\r') {
-        break;
-      }
+      if (packet[0] == '\r') break;
 
       chunk_size_str[i] = packet[0];
       i++;
@@ -319,12 +308,11 @@ int httpclient_unsafe_request(struct httpclient_request_params *request, struct 
 
     return -1;
   }
-  packet[len] = '\0';
 
   struct httpparser_header headers[30];
   httpparser_init_response((struct httpparser_response *)http_response, headers, 30);
 
-  if (httpparser_parse_response((struct httpparser_response *)http_response, packet) == -1) {
+  if (httpparser_parse_response((struct httpparser_response *)http_response, packet, len) == -1) {
     printf("[http-client]: Failed to parse HTTP response.\n");
 
     return -1;
@@ -351,8 +339,6 @@ int httpclient_unsafe_request(struct httpclient_request_params *request, struct 
         goto exit_fail;
       }
 
-      packet[len] = '\0';
-
       tstr_append(http_response->body, packet, &http_response->body_length, len);
       chunk_size_left -= len;
 
@@ -376,11 +362,7 @@ int httpclient_unsafe_request(struct httpclient_request_params *request, struct 
         return -1;
       }
 
-      packet[len] = '\0';
-
-      if (packet[0] == '\r') {
-        break;
-      }
+      if (packet[0] == '\r') break;
 
       chunk_size_str[i] = packet[0];
       i++;

@@ -52,20 +52,28 @@ void *frequenc_safe_realloc(void *pointer, size_t size) {
 }
 
 void frequenc_safe_free(void *pointer) {
-  if (pointer != NULL) {
-    free(pointer);
+  if (pointer == NULL) return;
 
-    pointer = NULL;
-  }
+  free(pointer);
+
+  pointer = NULL;
 }
 
 void frequenc_unsafe_free(void *pointer) {
+  #ifdef UNTRACEABLE_MEMORY
+    memset(pointer, 0, sizeof(pointer));
+  #endif
+
   free(pointer);
 }
 
 void frequenc_fast_copy(const char *src, char *dest, size_t size) {
   memcpy(dest, src, size);
   dest[size] = '\0';
+}
+
+void frequenc_unsafe_fast_copy(const char *src, char *dest, size_t size) {
+  memcpy(dest, src, size);
 }
 
 char *frequenc_strdup(const char *str, size_t size) {

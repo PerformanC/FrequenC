@@ -95,7 +95,7 @@ struct tablec_bucket *tablec_get(struct tablec_ht *tablec, char *key) {
 }
 
 int tablec_full(struct tablec_ht *tablec) {
-  return tablec->capacity == tablec->length ? -1 : tablec->capacity - tablec->length;
+  return (int)tablec->capacity == (int)tablec->length ? -1 : (int)tablec->capacity - (int)tablec->length;
 }
 
 void tablec_cleanup(struct tablec_ht *tablec) {

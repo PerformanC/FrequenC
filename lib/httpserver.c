@@ -225,6 +225,10 @@ void *httpserver_get_socket_data(struct httpserver *server, int socket_index) {
   return server->sockets[socket_index].data;
 }
 
+void httpserver_upgrade_socket(struct httpserver *server, int socket_index) {
+  server->sockets[socket_index].upgraded = true;
+}
+
 char *_httpserver_get_status_text(int status) {
   switch (status) {
     case 100: return "Continue";
@@ -307,8 +311,11 @@ char *_httpserver_get_status_text(int status) {
 
 size_t _calculate_response_length(struct httpserver_response *response) {
   size_t length = 0;
-  
-  length += snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", response->status, _httpserver_get_status_text(response->status));
+
+  length += sizeof("HTTP/1.1 ");
+  length += 3;
+  length += strlen(_httpserver_get_status_text(response->status));
+  length += 2;
 
   for (int i = 0; i < response->headers_length; i++) {
     length += strlen(response->headers[i].key);
@@ -327,7 +334,7 @@ size_t _calculate_response_length(struct httpserver_response *response) {
 
 void httpserver_send_response(struct httpserver_response *response) {
   size_t length = _calculate_response_length(response);
-  char *response_string = frequenc_safe_malloc(length + 1);
+  char *response_string = frequenc_safe_malloc(length);
   size_t response_position = 0;
 
   tstr_append(response_string, "HTTP/1.1 ", &response_position, 0);
@@ -335,10 +342,9 @@ void httpserver_send_response(struct httpserver_response *response) {
   char status_text[3 + 1];
   frequenc_stringify_int(response->status, status_text, sizeof(status_text));
   tstr_append(response_string, status_text, &response_position, 0);
-
   tstr_append(response_string, " ", &response_position, 0);
-
   tstr_append(response_string, _httpserver_get_status_text(response->status), &response_position, 0);
+  tstr_append(response_string, "\r\n", &response_position, 0);
 
   for (int i = 0; i < response->headers_length; i++) {
     tstr_append(response_string, response->headers[i].key, &response_position, 0);
@@ -350,14 +356,10 @@ void httpserver_send_response(struct httpserver_response *response) {
   tstr_append(response_string, "\r\n", &response_position, 0);
 
   if (response->body != NULL) {
-    tstr_append(response_string, response->body, &response_position, 0);
+    tstr_append(response_string, response->body, &response_position, response->body_length);
   }
 
   csocket_server_send(response->client, response_string, length);
 
   frequenc_unsafe_free(response_string);
-}
-
-void httpserver_upgrade_socket(struct httpserver *server, int socket_index) {
-  server->sockets[socket_index].upgraded = true;
 }

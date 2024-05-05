@@ -462,6 +462,9 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     pjsonb_end(&decoded_track_json);
 
+    frequenc_free_track_info(&decoded_track);
+    tstr_free(&decoded_query);
+
     char payload_length[3 + 1];
     frequenc_stringify_int(decoded_track_json.position, payload_length, sizeof(payload_length));
 
@@ -486,8 +489,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     httpserver_send_response(&response);
 
     pjsonb_free(&decoded_track_json);
-    frequenc_free_track_info(&decoded_track);
-    tstr_free(&decoded_query);
   }
 
   else if (strcmp(request->path, "/v1/encodetracks") == 0) {
@@ -602,10 +603,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     jsmn_parser parser;
     jsmntok_t tokens[32];
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
-
     jsmn_init(&parser);
-    int r = jsmn_parse(&parser, request->body, atoi(content_length->value), tokens, 32);
+    int r = jsmn_parse(&parser, request->body, request->body_length, tokens, 32);
     if (r < 0) {
       printf("[main]: Failed to parse JSON: %d\n", r);
 
@@ -631,7 +630,6 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    // char *encoded_track = NULL;
     struct tstr_string encoded_track = { 0 };
     char payload_length[4];
     frequenc_encode_track(&decoded_track, &encoded_track);
@@ -675,15 +673,16 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     if (identifier == NULL || identifier->value[0] == '\0') goto bad_request;
 
-    char identifierDecoded[512];
-    urldecoder_decode(identifierDecoded, identifier->value);
+    urldecoder_decode(identifier->value, identifier->value);
 
-    printf("[main]: Load tracks request: %s\n", identifierDecoded);
+    printf("[main]: Loading tracks request: %s\n", identifier->value);
 
     struct tstr_string result = { 0 };
 
-    if (strncmp(identifierDecoded, "ytsearch:", sizeof("ytsearch:") - 1) == 0)
-      result = frequenc_youtube_search(identifierDecoded + (sizeof("ytsearch:") - 1), 0);
+    if (strncmp(identifier->value, "ytsearch:", sizeof("ytsearch:") - 1) == 0)
+      result = frequenc_youtube_search(identifier->value + (sizeof("ytsearch:") - 1), 0);
+
+    printf("[main]: Done loading tracks request: %s\n", identifier->value);
 
     char payload_length[8 + 1];
     frequenc_stringify_int(result.length, payload_length, sizeof(payload_length));
@@ -1116,7 +1115,7 @@ int ws_callback(struct csocket_server_client *client, int socket_index, struct f
   printf("[main]: Opcode: %d\n", ws_frame->opcode);
   printf("[main]: FIN: %s\n", ws_frame->fin ? "true" : "false");
   printf("[main]: Length: %zu\n", ws_frame->payload_length);
-  printf("[main]: Buffer: |%s|\n", ws_frame->buffer);
+  printf("[main]: Buffer: |%.*s|\n", (int)ws_frame->payload_length, ws_frame->buffer);
 
   return 0;
 }

@@ -69,16 +69,12 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
   int content_length = 0;
   struct tstr_string_token last_header = {
     .start = 0,
-    .end = 0
+    .end = version_token.end
   };
 
   while (last_header.end != headers_end.end) {
     struct tstr_string_token header;
-    if (i == 0) {
-      tstr_find_between(&header, request, NULL, version_token.end + 2, "\r\n", 0);
-    } else {
-      tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
-    }
+    tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
 
     struct tstr_string_token header_name;
     tstr_find_between(&header_name, request, NULL, header.start, ": ", header.end);
@@ -170,7 +166,7 @@ struct httpparser_header *_httpparser_get_response_header(struct httpparser_resp
   return NULL;
 }
 
-int httpparser_parse_response(struct httpparser_response *http_response, const char *request) {
+int httpparser_parse_response(struct httpparser_response *http_response, const char *request, int request_length) {
   struct tstr_string_token headers_end;
   tstr_find_between(&headers_end, request, NULL, 0, "\r\n\r\n", 0);
 
@@ -203,15 +199,14 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
 
   int i = 0;
   int content_length = 0;
-  struct tstr_string_token last_header;
+  struct tstr_string_token last_header = {
+    .start = 0,
+    .end = reason.end
+  };
 
   while (1) {
     struct tstr_string_token header;
-    if (i == 0) {
-      tstr_find_between(&header, request, NULL, reason.end + 2, "\r\n", 0);
-    } else {
-      tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
-    }
+    tstr_find_between(&header, request, NULL, last_header.end + 2, "\r\n", 0);
 
     struct tstr_string_token header_name;
     tstr_find_between(&header_name, request, NULL, header.start, ": ", header.end);
@@ -251,18 +246,21 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
     frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
 
     http_response->chunk_length = strtol(chunk_size_str, NULL, 16);
-    http_response->body = frequenc_safe_malloc((http_response->chunk_length + 1) * sizeof(char));
-    http_response->body_length = snprintf(http_response->body, (http_response->chunk_length + 1), "%s", body_and_length + chunk_size.end + 2);
+    http_response->body = frequenc_safe_malloc(http_response->chunk_length * sizeof(char));
+    http_response->body_length = request_length - (headers_end.end + 4) - (chunk_size.end + 2);
+    frequenc_unsafe_fast_copy(body_and_length + chunk_size.end + 2, http_response->body, http_response->body_length);
     http_response->finished = 0;
   } else {
-    http_response->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
-    http_response->body_length = snprintf(http_response->body, (content_length + 1), "%s", request + headers_end.end + 4);
+    http_response->body_length = request_length - (headers_end.end + 4);
 
     if (http_response->body_length != (size_t)content_length) {
       frequenc_unsafe_free(http_response->body);
 
       return -1;
     }
+
+    http_response->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
+    frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_response->body, request_length - headers_end.end - 4);
 
     http_response->body_length = content_length;
     http_response->finished = 1;

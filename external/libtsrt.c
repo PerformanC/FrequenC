@@ -83,8 +83,6 @@ void tstr_append(char *str, const char *append, size_t *length, int limiter) {
     (*length)++;
     i++;
   }
-
-  str[*length] = '\0';
 }
 
 int tstr_find_amount(const char *str, const char *find) {

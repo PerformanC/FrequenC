@@ -15,24 +15,48 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   /* todo: add YouTube music support based on NodeLink */
   (void)type;
 
-  size_t body_size = (271 + strlen(_frequenc_youtube_get_client_name(type)) + strlen(_frequenc_youtube_get_client_version(type)) + strlen(query) + 1) * sizeof(char);
-  char *body = frequenc_safe_malloc(body_size);
-  snprintf(body, body_size,
-  "{"
-    "\"context\":{"
-      "\"client\":{"
-        "\"userAgent\": \"com.google.android.youtube/%s (Linux; U; Android 14 gzip)\","
-        "\"clientName\":\"%s\","
-        "\"clientVersion\":\"%s\","
-        "\"screenDensityFloat\":1,"
-        "\"screenHeightPoints\":1080,"
-        "\"screenPixelDensity\":1,"
-        "\"screenWidthPoints\":1920"
-      "}"
-    "},"
-    "\"query\":\"%s\","
-    "\"params\":\"EgIQAQ%%3D%%3D\"" // %% = escaped %
-  "}", _frequenc_youtube_get_client_version(type), _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
+  // size_t body_size = (271 + strlen(_frequenc_youtube_get_client_name(type)) + strlen(_frequenc_youtube_get_client_version(type)) + strlen(query) + 1) * sizeof(char);
+  // char *body = frequenc_safe_malloc(body_size);
+  // snprintf(body, body_size,
+  // "{"
+  //   "\"context\":{"
+  //     "\"client\":{"
+  //       "\"userAgent\": \"com.google.android.youtube/%s (Linux; U; Android 14 gzip)\","
+  //       "\"clientName\":\"%s\","
+  //       "\"clientVersion\":\"%s\","
+  //       "\"screenDensityFloat\":1,"
+  //       "\"screenHeightPoints\":1080,"
+  //       "\"screenPixelDensity\":1,"
+  //       "\"screenWidthPoints\":1920"
+  //     "}"
+  //   "},"
+  //   "\"query\":\"%s\","
+  //   "\"params\":\"EgIQAQ%%3D%%3D\"" // %% = escaped %
+  // "}", _frequenc_youtube_get_client_version(type), _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
+
+  struct pjsonb body_json;
+  pjsonb_init(&body_json, PJSONB_OBJECT);
+
+  pjsonb_enter_object(&body_json, "context");
+
+  pjsonb_enter_object(&body_json, "client");
+
+  pjsonb_set_string(&body_json, "userAgent", "com.google.android.youtube/19.13.34 (Linux; U; Android 14 gzip)", sizeof("com.google.android.youtube/19.13.34 (Linux; U; Android 14 gzip)") - 1);
+  pjsonb_set_string(&body_json, "clientName", "ANDROID", sizeof("ANDROID") - 1);
+  pjsonb_set_string(&body_json, "clientVersion", "19.13.34", sizeof("19.13.34") - 1);
+  pjsonb_set_int(&body_json, "screenDensityFloat", 1);
+  pjsonb_set_int(&body_json, "screenHeightPoints", 1080);
+  pjsonb_set_int(&body_json, "screenPixelDensity", 1);
+  pjsonb_set_int(&body_json, "screenWidthPoints", 1920);
+
+  pjsonb_leave_object(&body_json);
+
+  pjsonb_leave_object(&body_json);
+
+  pjsonb_set_string(&body_json, "query", query, strlen(query));
+  pjsonb_set_string(&body_json, "params", "EgIQAQ%%3D%%3D", sizeof("EgIQAQ%%3D%%3D") - 1);
+
+  pjsonb_end(&body_json);
 
   struct httpclient_request_params request = {
     .host = "www.youtube.com",
@@ -50,7 +74,11 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
         .value = "application/json"
       }
     },
-    .body = body
+    .body = &(struct tstr_string) {
+      .string = body_json.string,
+      .length = body_json.position,
+      .allocated = true
+    }
   };
 
   struct httpclient_response response;
@@ -58,7 +86,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     /* Should be printed by httpclient
        printf("[youtube]: Failed to make request.\n"); */
 
-    frequenc_unsafe_free(body);
+    pjsonb_free(&body_json);
 
     char *error = frequenc_safe_malloc((60 + 1) * sizeof(char));
     snprintf(error, (60 + 1) * sizeof(char),
@@ -77,6 +105,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   }
 
   httpclient_shutdown(&response);
+  pjsonb_free(&body_json);
 
   jsmn_parser parser;
   jsmntok_t *tokens = NULL;
@@ -86,7 +115,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   int r = jsmn_parse_auto(&parser, response.body, response.body_length, &tokens, &num_tokens);
   if (r <= 0) {
     frequenc_unsafe_free(tokens);
-    frequenc_unsafe_free(body);
 
     printf("[youtube]: Failed to parse JSON: %d\n", r);
 
@@ -115,7 +143,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   if (r <= 0) {
     frequenc_unsafe_free(pairs);
     frequenc_unsafe_free(tokens);
-    frequenc_unsafe_free(body);
 
     printf("[youtube]: Error while loading tokens: %d\n", r);
 
@@ -141,7 +168,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   if (error != NULL) {
     frequenc_unsafe_free(pairs);
     frequenc_unsafe_free(tokens);
-    frequenc_unsafe_free(body);
 
     printf("[youtube]: Error: %.*s\n", (int)error->v.len, response.body + error->v.pos);
 
@@ -355,8 +381,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
       frequenc_track_info_to_json(&track_info, &encoded_track, &track_json, false);
 
-      tstr_free(&encoded_track);
       frequenc_free_track_info(&track_info);
+      tstr_free(&encoded_track);
     }
 
     i++;
@@ -367,7 +393,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
     frequenc_unsafe_free(response.body);
     frequenc_unsafe_free(pairs);
     frequenc_unsafe_free(tokens);
-    frequenc_unsafe_free(body);
 
     char *response_msg = frequenc_safe_malloc((20 + 1) * sizeof(char));
     snprintf(response_msg, (20 + 1) * sizeof(char),
@@ -391,7 +416,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   frequenc_unsafe_free(pairs);
   frequenc_unsafe_free(tokens);
   httpclient_free(&response);
-  frequenc_unsafe_free(body);
 
   struct tstr_string result = {
     .string = track_json.string,

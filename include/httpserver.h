@@ -61,8 +61,8 @@ void httpserver_set_socket_data(struct httpserver *server, int socket_index, voi
 
 void *httpserver_get_socket_data(struct httpserver *server, int socket_index);
 
-void httpserver_send_response(struct httpserver_response *response);
-
 void httpserver_upgrade_socket(struct httpserver *server, int socket_index);
+
+void httpserver_send_response(struct httpserver_response *response);
 
 #endif /* HTTPSERVER_H_ */

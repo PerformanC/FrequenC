@@ -26,7 +26,7 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
   size_t payload_length = buffer[1] & 127;
 
   char mask[5];
-  if ((buffer[1] & 128) == 128) frequenc_fast_copy(mask, &buffer[2], 4);
+  if ((buffer[1] & 128) == 128) frequenc_fast_copy(&buffer[2], mask, 4);
 
   if (payload_length == 126) {
     start_index += 2;
@@ -61,8 +61,6 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
     }
   }
 
-  buffer[start_index + payload_length] = '\0';
-
   struct frequenc_ws_frame frame_header;
   frame_header.opcode = opcode;
   frame_header.fin = fin;
@@ -76,7 +74,7 @@ void frequenc_gen_accept_key(char *key, char *output) {
   char *magic_string = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
   SHA1C_CTX sha;
-  char results[20 + 1];
+  char results[20];
 
   char concatenated_string[24 + 36 + 1];
   int concatenatedStringLength = snprintf(concatenated_string, sizeof(concatenated_string), "%s%s", key, magic_string);
@@ -85,13 +83,11 @@ void frequenc_gen_accept_key(char *key, char *output) {
   SHA1CUpdate(&sha, (const unsigned char *)concatenated_string, concatenatedStringLength);
   SHA1CFinal((unsigned char *)results, &sha);
 
-  results[20] = '\0';
-
-  b64_encode((unsigned char *)results, output, sizeof(results) - 1);
+  b64_encode((unsigned char *)results, output, sizeof(results));
 }
 
 void frequenc_key_to_base64(char *key, char *output) {
-  char results[20 + 1];
+  char results[20];
 
   SHA1C_CTX sha;
 
@@ -99,9 +95,7 @@ void frequenc_key_to_base64(char *key, char *output) {
   SHA1CUpdate(&sha, (const unsigned char *)key, strlen(key));
   SHA1CFinal((unsigned char *)results, &sha);
 
-  results[20] = '\0';
-
-  b64_encode((unsigned char *)results, output, sizeof(results) - 1);
+  b64_encode((unsigned char *)results, output, sizeof(results));
 }
 
 void frequenc_init_ws_response(struct frequenc_ws_message *response) {
@@ -238,6 +232,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   size_t continue_buffer_length = 0;
 
   while (1) {
+    /* TODO: Read small datas per time */
     int len = SSL_read(response->ssl, packet, TCPLIMITS_PACKET_SIZE);
     if (len == -1) {
       perror("[websocket]: Failed to receive HTTP response");
@@ -251,8 +246,6 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       goto exit;
     }
 
-    packet[len] = '\0';
-
     struct frequenc_ws_frame header = frequenc_parse_ws_frame(packet);
 
     switch (header.opcode) {
@@ -265,7 +258,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
           continue_buffer_length += header.payload_length;
         }
 
-        memcpy(continue_buffer + continue_buffer_length - header.payload_length, header.buffer, header.payload_length);
+        frequenc_unsafe_fast_copy(header.buffer, continue_buffer + continue_buffer_length - header.payload_length, header.payload_length);
 
         if (header.fin) {
           struct frequenc_ws_frame continue_frame;
@@ -288,7 +281,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
           continue_buffer = frequenc_safe_malloc(header.payload_length * sizeof(char));
           continue_buffer_length = header.payload_length;
 
-          memcpy(continue_buffer, header.buffer, header.payload_length);
+          frequenc_unsafe_fast_copy(header.buffer, continue_buffer, header.payload_length);
 
           break;
         }

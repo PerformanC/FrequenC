@@ -1,21 +1,22 @@
-CC = clang
+CC ?= clang
 
-# Comment this line out if you are having problems with it.
-TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY = 1
+# Experiments
+TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY = 1 # Save memory by using a lower layers limits instead of the TCP limit itself. 
 
-# CSOCKET_SECURE = 1
-# CSOCKET_KEY = "key.pem"
-# CSOCKET_CERT = "cert.pem"
-PORT = 8888
-AUTHORIZATION = "youshallnotpass"
-ALLOW_UNSECURE_RANDOM = 0
+# Security
+# CSOCKET_SECURE = 1 # Secure the connection with SSL/TLS.
+# CSOCKET_KEY = "key.pem" # SSL/TLS key.
+# CSOCKET_CERT = "cert.pem" # SSL/TLS certificate.
+PORT = 8888# Port that FrequenC will listen on.
+AUTHORIZATION = youshallnotpass# Authorization header for the server. Secure it with a strong password.
+ALLOW_UNSECURE_RANDOM = 0# Only use this for unsupported platforms.
 
 # Development
-HARDCODED_SESSION_ID = 0
+HARDCODED_SESSION_ID = 0# Hardcoded session ID for debugging purposes.
 
 # Github Actions
-GITHUB_COMMIT_SHA ?= "unknown"
-GITHUB_BRANCH ?= "unknown"
+GITHUB_COMMIT_SHA ?= unknown# The commit hash that the build was made on.
+GITHUB_BRANCH ?= unknown# The branch that the commit was made on.
 
 SRC_DIR = lib external sources
 OBJ_DIR = obj

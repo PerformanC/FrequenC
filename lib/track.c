@@ -45,11 +45,11 @@ void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result)
   uint16_t len = _read_unsigned_short(decoder_class);
   size_t start = _change_bytes(decoder_class, len);
 
-  result->string = frequenc_safe_malloc(len + 1);
+  result->string = frequenc_safe_malloc(len);
   result->length = len;
-  result->allocated = false;
+  result->allocated = true;
 
-  frequenc_fast_copy((char *)decoder_class->buffer + start, result->string, len);
+  frequenc_unsafe_fast_copy((char *)decoder_class->buffer + start, result->string, len);
 }
 
 int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_string *track) {
@@ -117,7 +117,20 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
     return -1;
   }
 
-  printf("[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %.*s\n - Title: %s\n - Author: %s\n - Length: %lu\n - Identifier: %s\n - Is Stream: %s\n - URI: %s\n - Artwork URL: %s\n - ISRC: %s\n - Source Name: %s\n", version, (int)track->length, track->string, result->title.string, result->author.string, result->length, result->identifier.string, result->is_stream ? "true" : "false", result->uri.string, result->artwork_url.length ? result->artwork_url.string : "null", result->isrc.length ? result->isrc.string : "null", result->source_name.string);
+  printf(
+    "[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %.*s\n - Title: %.*s\n - Author: %.*s\n - Length: %lu\n - Identifier: %.*s\n - Is Stream: %s\n - URI: %.*s\n - Artwork URL: %.*s\n - ISRC: %.*s\n - Source Name: %.*s\n",
+    version,
+    (int)track->length, track->string,
+    (int)result->title.length, result->title.string,
+    (int)result->author.length, result->author.string,
+    result->length,
+    (int)result->identifier.length, result->identifier.string,
+    result->is_stream ? "true" : "false",
+    (int)result->uri.length, result->uri.string,
+    (int)(result->artwork_url.length == 0 ? sizeof("N/A") - 1 : result->artwork_url.length), result->artwork_url.length == 0 ? "N/A" : result->artwork_url.string,
+    (int)(result->isrc.length == 0 ? sizeof("N/A") - 1 : result->isrc.length), result->isrc.length == 0 ? "N/A" : result->isrc.string,
+    (int)result->source_name.length, result->source_name.string
+  );
 
   frequenc_unsafe_free(output);
 
@@ -227,8 +240,10 @@ void frequenc_encode_track(struct frequenc_track_info *track, struct tstr_string
 
   _internal_write_int(buffer, 0, ((uint32_t)position - 4) | (1 << 30));
 
-  result->string = frequenc_safe_malloc(b64_encoded_size(position) * sizeof(char));
+  result->length = b64_encoded_size(position);
+  result->string = frequenc_safe_malloc(result->length * sizeof(char));
   b64_encode(buffer, result->string, position);
+  result->allocated = true;
  
   frequenc_unsafe_free(buffer);
 }

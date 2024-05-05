@@ -13,7 +13,7 @@ struct httpclient_request_params {
   char *path;
   int headers_length;
   struct httpparser_header *headers;
-  char *body;
+  struct tstr_string *body;
 };
 
 struct httpclient_response {

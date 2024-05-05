@@ -26,6 +26,8 @@ void frequenc_unsafe_free(void *pointer);
 
 void frequenc_fast_copy(const char *src, char *dest, size_t size);
 
+void frequenc_unsafe_fast_copy(const char *src, char *dest, size_t size);
+
 char *frequenc_strdup(const char *str, size_t size);
 
 void frequenc_sleep(int ms);
