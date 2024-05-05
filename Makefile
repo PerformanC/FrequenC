@@ -44,7 +44,7 @@ $(OBJ_DIR)/%.o: sources/%.c | $(OBJ_DIR)
 $(OBJ_DIR):
 	mkdir -p $@
 
-debug: CFLAGS += -g
+debug: CFLAGS=-g -O0 -march=native
 debug: FrequenC
 
 .PHONY: clean
