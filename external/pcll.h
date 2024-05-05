@@ -25,15 +25,31 @@ struct pcll_connection {
   #endif
 };
 
+struct pcll_server {
+  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
+    SSL *ssl;
+    SSL_CTX *ctx;
+  #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
+    WOLFSSL *ssl;
+    WOLFSSL_CTX *ctx;
+  #endif
+};
+
 int pcll_init_ssl_library(void);
 
 int pcll_init_ssl(struct pcll_connection *connection);
+
+int pcll_init_only_ssl(struct pcll_connection *connection);
+
+int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key);
 
 int pcll_set_fd(struct pcll_connection *connection, int fd);
 
 int pcll_set_safe_mode(struct pcll_connection *connection, char *hostname);
 
 int pcll_connect(struct pcll_connection *connection);
+
+int pcll_accept(struct pcll_connection *connection);
 
 int pcll_get_error(struct pcll_connection *connection);
 

@@ -14,8 +14,7 @@
   #include <string.h>
 
   #ifdef CSOCKET_SECURE
-    #include <openssl/ssl.h>
-    #include <openssl/err.h>
+    #include "pcll.h"
   #endif
 #endif
 
@@ -26,89 +25,40 @@ int csocket_server_init(struct csocket_server *server) {
     // Not supported yet
   #else
     #ifdef CSOCKET_SECURE
-      SSL_load_error_strings();
-      OpenSSL_add_ssl_algorithms();
+      pcll_init_ssl_library();
 
-      const SSL_METHOD *method = TLS_server_method();
-      server->ctx = SSL_CTX_new(method);
-
-      if (!server->ctx) {
-        perror("[csocket-server]: Failed to create SSL context");
-
-        return -1;
-      }
-
-      if (SSL_CTX_use_certificate_file(server->ctx, CSOCKET_CERT, SSL_FILETYPE_PEM) <= 0) {
-        perror("[csocket-server]: Failed to load certificate");
-
-        return -1;
-      }
-
-      if (SSL_CTX_use_PrivateKey_file(server->ctx, CSOCKET_KEY, SSL_FILETYPE_PEM) <= 0) {
-        perror("[csocket-server]: Failed to load private key");
-
-        return -1;
-      }
-
-      if (!SSL_CTX_check_private_key(server->ctx)) {
-        perror("[csocket-server]: Private key does not match the public certificate");
-
-        return -1;
-      }
-
-      server->socket = socket(AF_INET, SOCK_STREAM, 0);
-      if (server->socket == -1) {
-        perror("[csocket-server]: Failed to create socket");
-
-        return -1;
-      }
-
-      struct sockaddr_in serverOptions = {
-        .sin_addr.s_addr = INADDR_ANY,
-        .sin_family = AF_INET,
-        .sin_port = htons(server->port)
-      };
-
-      if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
-        perror("[csocket-server]: Failed to bind socket");
-
-        return -1;
-      }
-
-      if (listen(server->socket, 3) < 0) {
-        perror("[csocket-server]: Failed to listen on socket");
-
-        return -1;
-      }
-
-      setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
-    #else
-      if ((server->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("[csocket-server]: Failed to create socket");
-
-        return -1;
-      }
-
-      struct sockaddr_in serverOptions = {
-        .sin_addr.s_addr = INADDR_ANY,
-        .sin_family = AF_INET,
-        .sin_port = htons(server->port)
-      };
-
-      setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
-
-      if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
-        perror("[csocket-server]: Failed to bind socket");
-
-        return -1;
-      }
-
-      if (listen(server->socket, -1) < 0) {
-        perror("[csocket-server]: Failed to listen on socket");
+      if (pcll_init_tls_server(&server->connection, CSOCKET_CERT, CSOCKET_KEY) < 0) {
+        perror("[csocket-server]: Failed to initialize SSL server");
 
         return -1;
       }
     #endif
+
+    if ((server->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      perror("[csocket-server]: Failed to create socket");
+
+      return -1;
+    }
+
+    struct sockaddr_in serverOptions = {
+      .sin_addr.s_addr = INADDR_ANY,
+      .sin_family = AF_INET,
+      .sin_port = htons(server->port)
+    };
+
+    setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
+
+    if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
+      perror("[csocket-server]: Failed to bind socket");
+
+      return -1;
+    }
+
+    if (listen(server->socket, -1) < 0) {
+      perror("[csocket-server]: Failed to listen on socket");
+
+      return -1;
+    }
   #endif
 
   return 0;
@@ -127,10 +77,10 @@ int csocket_server_accept(struct csocket_server server, struct csocket_server_cl
     }
 
     #ifdef CSOCKET_SECURE
-      client->ssl = SSL_new(server->ctx);
-      SSL_set_fd(client->ssl, client->socket);
+      pcll_init_only_ssl(&client->connection);
+      pcll_set_fd(&client->connection, client->socket);
 
-      if (SSL_accept(client->ssl) <= 0) {
+      if (pcll_accept(&client->connection) < 0) {
         perror("[csocket-server]: Failed to accept SSL connection");
 
         return -1;
@@ -146,7 +96,7 @@ int csocket_server_send(struct csocket_server_client *client, char *data, size_t
     // Not supported yet
   #else
     #ifdef CSOCKET_SECURE
-      if (SSL_write(client->ssl, data, length) <= 0) {
+      if (pcll_send(client->connection, data, length) < 0) {
         perror("[csocket-server]: Failed to send data");
 
         return -1;
@@ -168,7 +118,7 @@ int csocket_close_client(struct csocket_server_client *client) {
     // Not supported yet
   #else
     #ifdef CSOCKET_SECURE
-      SSL_shutdown(client->ssl);
+      pcll_shutdown(client->connection);
     #endif
 
     close(client->socket);
@@ -182,14 +132,12 @@ int csocket_server_recv(struct csocket_server_client *client, char *buffer, size
     // Not supported yet
   #else
     #ifdef CSOCKET_SECURE
-      int bytes = SSL_read(client->ssl, buffer, length);
+      int bytes = pcll_recv(client->connection, buffer, length);
       if (bytes <= 0) {
         perror("[csocket-server]: Failed to receive data");
 
         return -1;
       }
-
-      buffer[bytes] = '\0';
 
       return bytes;
     #else
@@ -199,8 +147,6 @@ int csocket_server_recv(struct csocket_server_client *client, char *buffer, size
 
         return -1;
       }
-
-      buffer[bytes] = '\0';
 
       return bytes;
     #endif
@@ -212,7 +158,7 @@ int csocket_server_close(struct csocket_server *server) {
     // Not supported yet
   #else
     #ifdef CSOCKET_SECURE
-      SSL_CTX_free(server->ctx);
+      pcll_free(&server->connection);
     #endif
 
     close(server->socket);

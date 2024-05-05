@@ -30,6 +30,72 @@ int pcll_init_ssl_library(void) {
   return 0;
 }
 
+int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key) {
+  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
+    server->ctx = SSL_CTX_new(TLS_server_method());
+    if (!server->ctx) {
+      SSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (!SSL_CTX_set_min_proto_version(server->ctx, TLS1_2_VERSION)) {
+      SSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (SSL_CTX_use_certificate_file(server->ctx, cert, SSL_FILETYPE_PEM) <= 0) {
+      SSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(server->ctx, key, SSL_FILETYPE_PEM) <= 0) {
+      SSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (!SSL_CTX_check_private_key(server->ctx)) {
+      SSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    return 0;
+  #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
+    server->ctx = wolfSSL_CTX_new(wolfTLSv1_2_server_method());
+    if (server->ctx == NULL) {
+      wolfSSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (wolfSSL_CTX_use_certificate_file(server->ctx, cert, SSL_FILETYPE_PEM) != WOLFSSL_SUCCESS) {
+      wolfSSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (wolfSSL_CTX_use_PrivateKey_file(server->ctx, key, SSL_FILETYPE_PEM) != WOLFSSL_SUCCESS) {
+      wolfSSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    if (wolfSSL_CTX_check_private_key(server->ctx) != WOLFSSL_SUCCESS) {
+      wolfSSL_CTX_free(server->ctx);
+
+      return -1;
+    }
+
+    return 0;
+  #endif
+
+  return -1;
+}
+
 int pcll_init_ssl(struct pcll_connection *connection) {
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     connection->ctx = SSL_CTX_new(TLS_client_method());
@@ -63,6 +129,32 @@ int pcll_init_ssl(struct pcll_connection *connection) {
       return -1;
     }
 
+    connection->ssl = wolfSSL_new(connection->ctx);
+    if (connection->ssl == NULL) {
+      wolfSSL_free(connection->ssl);
+      wolfSSL_CTX_free(connection->ctx);
+
+      return -1;
+    }
+
+    return 0;
+  #endif
+
+  return -1;
+}
+
+int pcll_init_only_ssl(struct pcll_connection *connection) {
+  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
+    connection->ssl = SSL_new(connection->ctx);
+    if (!connection->ssl) {
+      SSL_free(connection->ssl);
+      SSL_CTX_free(connection->ctx);
+
+      return -1;
+    }
+
+    return 0;
+  #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     connection->ssl = wolfSSL_new(connection->ctx);
     if (connection->ssl == NULL) {
       wolfSSL_free(connection->ssl);
@@ -143,6 +235,20 @@ int pcll_connect(struct pcll_connection *connection) {
   return -1;
 }
 
+int pcll_accept(struct pcll_connection *connection) {
+  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
+    if (SSL_accept(connection->ssl) != 1) return -1;
+
+    return 0;
+  #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
+    if (wolfSSL_accept(connection->ssl) != WOLFSSL_SUCCESS) return -1;
+
+    return 0;
+  #endif
+
+  return -1;
+}
+
 int pcll_get_error(struct pcll_connection *connection) {
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     return SSL_get_error(connection->ssl, 0);
@@ -209,8 +315,8 @@ int pcll_recv(struct pcll_connection *connection, char *data, int length) {
 
 void pcll_free(struct pcll_connection *connection) {
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
-    SSL_free(connection->ssl);
-    SSL_CTX_free(connection->ctx);
+    if (connection->ssl != NULL) SSL_free(connection->ssl);
+    if (connection->ctx != NULL) SSL_CTX_free(connection->ctx);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     wolfSSL_free(connection->ssl);
     wolfSSL_CTX_free(connection->ctx);
