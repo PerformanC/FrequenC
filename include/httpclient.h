@@ -1,10 +1,10 @@
 #ifndef HTTPCLIENT_H
 #define HTTPCLIENT_H
 
+#include "pcll.h"
+
 #include "types.h"
 #include "httpparser.h"
-
-#include <openssl/ssl.h>
 
 struct httpclient_request_params {
   char *host;
@@ -27,8 +27,7 @@ struct httpclient_response {
   size_t body_length;
   int finished;
   int chunk_length;
-  SSL *ssl;
-  SSL_CTX *ctx;
+  struct pcll_connection connection;
   int socket;
 };
 

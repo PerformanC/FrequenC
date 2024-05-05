@@ -232,10 +232,9 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   size_t continue_buffer_length = 0;
 
   while (1) {
-    /* TODO: Read small datas per time */
-    int len = SSL_read(response->ssl, packet, TCPLIMITS_PACKET_SIZE);
-    if (len == -1) {
-      perror("[websocket]: Failed to receive HTTP response");
+    int len = pcll_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
+    if (len == 0) {
+      perror("[websocket]: Connection closed");
 
       goto exit;
     }
@@ -309,7 +308,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       case 9: {
         int pong[] = { 0x8A, 0x00 };
 
-        SSL_write(response->ssl, pong, 2);
+        pcll_send(&response->connection, (char *)pong, 2);
 
         break;
       }
@@ -390,7 +389,7 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  SSL_write(response->ssl, buffer, payload_start_index + message_length);
+  pcll_send(&response->connection, (char *)buffer, payload_start_index + message_length);
 
   frequenc_unsafe_free(buffer);
 
