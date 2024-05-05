@@ -89,7 +89,8 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     return -1;
   }
 
-  if (pcll_init_ssl(&http_response->connection) == -1) {
+  int ret = pcll_init_ssl(&http_response->connection);
+  if (ret != PCLL_SUCCESS) {
     close(http_response->socket);
 
     perror("[https-client]: Failed to initialize SSL");
@@ -97,7 +98,8 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     return -1;
   }
 
-  if (pcll_set_fd(&http_response->connection, http_response->socket) == -1) {
+  ret = pcll_set_fd(&http_response->connection, http_response->socket);
+  if (ret != PCLL_SUCCESS) {
     close(http_response->socket);
 
     perror("[https-client]: Failed to attach SSL to socket");
@@ -105,7 +107,8 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     return -1;
   }
 
-  if (pcll_set_safe_mode(&http_response->connection, request->host) == -1) {
+  ret = pcll_set_safe_mode(&http_response->connection, request->host);
+  if (ret != PCLL_SUCCESS) {
     close(http_response->socket);
 
     perror("[https-client]: Failed to set safe mode");
@@ -113,10 +116,11 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     return -1;
   }
 
-  if (pcll_connect(&http_response->connection) == -1) {
+  ret = pcll_connect(&http_response->connection);
+  if (ret != PCLL_SUCCESS) {
     close(http_response->socket);
 
-    printf("[https-client]: Failed to perform SSL handshake: %d\n", pcll_get_error(&http_response->connection));
+    printf("[https-client]: Failed to perform SSL handshake: %d\n", pcll_get_error(&http_response->connection, ret));
 
     return -1;
   }
@@ -124,7 +128,8 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   struct tstr_string http_request;
   _httpclient_build_request(request, &http_request);
 
-  if (pcll_send(&http_response->connection, http_request.string, http_request.length) == -1) {
+  ret = pcll_send(&http_response->connection, http_request.string, http_request.length);
+  if (ret == PCLL_ERROR) {
     close(http_response->socket);
 
     perror("[https-client]: Failed to send HTTP request");
@@ -136,7 +141,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   char packet[TCPLIMITS_PACKET_SIZE];
 
   int len = pcll_recv(&http_response->connection, packet, TCPLIMITS_PACKET_SIZE);
-  if (len == -1) {
+  if (len == PCLL_ERROR) {
     close(http_response->socket);
 
     perror("[https-client]: Failed to receive HTTP response");
@@ -173,7 +178,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
 
     while (chunk_size_left > 0) {
       len = pcll_recv(&http_response->connection, packet, chunk_size_left > TCPLIMITS_PACKET_SIZE ? TCPLIMITS_PACKET_SIZE : chunk_size_left);
-      if (len == -1) {
+      if (len == PCLL_ERROR) {
         close(http_response->socket);
 
         perror("[https-client]: Failed to receive HTTP response");
@@ -188,7 +193,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     }
 
     len = pcll_recv(&http_response->connection, packet, 2);
-    if (len == -1) {
+    if (len == PCLL_ERROR) {
       close(http_response->socket);
 
       perror("[https-client]: Failed to receive HTTP response");
@@ -200,7 +205,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     int i = 0;
     while (1) {
       len = pcll_recv(&http_response->connection, packet, 1);
-      if (len == -1) {
+      if (len == PCLL_ERROR) {
         close(http_response->socket);
 
         perror("[https-client]: Failed to receive HTTP response");
@@ -220,7 +225,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     if (chunk_size_left == 0) return 0;
 
     len = pcll_recv(&http_response->connection, packet, 1);
-    if (len == -1) {
+    if (len == PCLL_ERROR) {
       close(http_response->socket);
 
       perror("[https-client]: Failed to receive HTTP response");

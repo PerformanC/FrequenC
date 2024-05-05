@@ -237,10 +237,8 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       perror("[websocket]: Connection closed");
 
       goto exit;
-    }
-
-    if (len == 0) {
-      perror("[websocket]: Connection closed");
+    } else if (len == PCLL_ERROR) {
+      perror("[websocket]: Failed to receive data");
 
       goto exit;
     }
@@ -308,7 +306,11 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       case 9: {
         int pong[] = { 0x8A, 0x00 };
 
-        pcll_send(&response->connection, (char *)pong, 2);
+        if (pcll_send(&response->connection, (char *)pong, 2) == PCLL_ERROR) {
+          perror("[websocket]: Failed to send pong");
+
+          goto exit;
+        }
 
         break;
       }
@@ -389,7 +391,13 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  pcll_send(&response->connection, (char *)buffer, payload_start_index + message_length);
+  if (pcll_send(&response->connection, (char *)buffer, payload_start_index + message_length) == PCLL_ERROR) {
+    perror("[websocket]: Failed to send message");
+
+    frequenc_unsafe_free(buffer);
+
+    return -1;
+  }
 
   frequenc_unsafe_free(buffer);
 

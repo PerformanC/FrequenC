@@ -35,7 +35,10 @@ struct pcll_server {
   #endif
 };
 
-int pcll_init_ssl_library(void);
+#define PCLL_SUCCESS 0
+#define PCLL_ERROR  -1
+
+void pcll_init_ssl_library(void);
 
 int pcll_init_ssl(struct pcll_connection *connection);
 
@@ -51,7 +54,7 @@ int pcll_connect(struct pcll_connection *connection);
 
 int pcll_accept(struct pcll_connection *connection);
 
-int pcll_get_error(struct pcll_connection *connection);
+int pcll_get_error(struct pcll_connection *connection, int error);
 
 int pcll_send(struct pcll_connection *connection, char *data, int length);
 

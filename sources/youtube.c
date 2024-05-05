@@ -15,25 +15,6 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   /* todo: add YouTube music support based on NodeLink */
   (void)type;
 
-  // size_t body_size = (271 + strlen(_frequenc_youtube_get_client_name(type)) + strlen(_frequenc_youtube_get_client_version(type)) + strlen(query) + 1) * sizeof(char);
-  // char *body = frequenc_safe_malloc(body_size);
-  // snprintf(body, body_size,
-  // "{"
-  //   "\"context\":{"
-  //     "\"client\":{"
-  //       "\"userAgent\": \"com.google.android.youtube/%s (Linux; U; Android 14 gzip)\","
-  //       "\"clientName\":\"%s\","
-  //       "\"clientVersion\":\"%s\","
-  //       "\"screenDensityFloat\":1,"
-  //       "\"screenHeightPoints\":1080,"
-  //       "\"screenPixelDensity\":1,"
-  //       "\"screenWidthPoints\":1920"
-  //     "}"
-  //   "},"
-  //   "\"query\":\"%s\","
-  //   "\"params\":\"EgIQAQ%%3D%%3D\"" // %% = escaped %
-  // "}", _frequenc_youtube_get_client_version(type), _frequenc_youtube_get_client_name(type), _frequenc_youtube_get_client_version(type), query);
-
   struct pjsonb body_json;
   pjsonb_init(&body_json, PJSONB_OBJECT);
 
@@ -88,8 +69,8 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
     pjsonb_free(&body_json);
 
-    char *error = frequenc_safe_malloc((60 + 1) * sizeof(char));
-    snprintf(error, (60 + 1) * sizeof(char),
+    char *error = frequenc_safe_malloc((59 + 1) * sizeof(char));
+    snprintf(error, (59 + 1) * sizeof(char),
       "{"
         "\"loadType\":\"error\","
         "\"data\":\"Failed to connect to YouTube.\""
@@ -97,7 +78,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
 
     struct tstr_string result = {
       .string = error,
-      .length = 60,
+      .length = 59,
       .allocated = true
     };
 
