@@ -5,7 +5,8 @@
 */
 
 #ifdef _WIN32
-  #error "csocket-server is not supported on Windows yet"
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
 #else
   #include <sys/socket.h>
   #include <arpa/inet.h>
@@ -22,105 +23,101 @@
 
 int csocket_server_init(struct csocket_server *server) {
   #ifdef _WIN32
-    // Not supported yet
-  #else
-    #ifdef CSOCKET_SECURE
-      pcll_init_ssl_library();
-
-      if (pcll_init_tls_server(&server->connection, CSOCKET_CERT, CSOCKET_KEY) < 0) {
-        perror("[csocket-server]: Failed to initialize SSL server");
-
-        return -1;
-      }
-    #endif
-
-    if ((server->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      perror("[csocket-server]: Failed to create socket");
-
-      return -1;
-    }
-
-    struct sockaddr_in serverOptions = {
-      .sin_addr.s_addr = INADDR_ANY,
-      .sin_family = AF_INET,
-      .sin_port = htons(server->port)
-    };
-
-    setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
-
-    if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
-      perror("[csocket-server]: Failed to bind socket");
-
-      return -1;
-    }
-
-    if (listen(server->socket, -1) < 0) {
-      perror("[csocket-server]: Failed to listen on socket");
+    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
+      perror("[csocket-server]: Failed to initialize Winsock");
 
       return -1;
     }
   #endif
 
+  #ifdef CSOCKET_SECURE
+    pcll_init_ssl_library();
+
+    if (pcll_init_tls_server(&server->connection, CSOCKET_CERT, CSOCKET_KEY) < 0) {
+      perror("[csocket-server]: Failed to initialize SSL server");
+
+      return -1;
+    }
+  #endif
+
+  if ((server->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    perror("[csocket-server]: Failed to create socket");
+
+    return -1;
+  }
+
+  struct sockaddr_in serverOptions = {
+    .sin_addr.s_addr = INADDR_ANY,
+    .sin_family = AF_INET,
+    .sin_port = htons(server->port)
+  };
+
+  setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
+
+  if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
+    perror("[csocket-server]: Failed to bind socket");
+
+    return -1;
+  }
+
+  if (listen(server->socket, -1) < 0) {
+    perror("[csocket-server]: Failed to listen on socket");
+
+    return -1;
+  }
+
   return 0;
 }
 
 int csocket_server_accept(struct csocket_server server, struct csocket_server_client *client) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    socklen_t addrlen = sizeof(client->address);
+  socklen_t addrlen = sizeof(client->address);
 
-    if ((client->socket = accept(server.socket, (struct sockaddr *)&client->address, &addrlen)) < 0) {
-      perror("[csocket-server]: Failed to accept connection");
+  if ((client->socket = accept(server.socket, (struct sockaddr *)&client->address, &addrlen)) < 0) {
+    perror("[csocket-server]: Failed to accept connection");
+
+    return -1;
+  }
+
+  #ifdef CSOCKET_SECURE
+    pcll_init_only_ssl(&client->connection);
+    pcll_set_fd(&client->connection, client->socket);
+
+    if (pcll_accept(&client->connection) < 0) {
+      perror("[csocket-server]: Failed to accept SSL connection");
 
       return -1;
     }
-
-    #ifdef CSOCKET_SECURE
-      pcll_init_only_ssl(&client->connection);
-      pcll_set_fd(&client->connection, client->socket);
-
-      if (pcll_accept(&client->connection) < 0) {
-        perror("[csocket-server]: Failed to accept SSL connection");
-
-        return -1;
-      }
-    #endif
   #endif
 
   return 0;
 }
 
 int csocket_server_send(struct csocket_server_client *client, char *data, size_t length) {
-  #ifdef _WIN32
-    // Not supported yet
+  #ifdef CSOCKET_SECURE
+    if (pcll_send(client->connection, data, length) < 0) {
+      perror("[csocket-server]: Failed to send data");
+
+      return -1;
+    }
   #else
-    #ifdef CSOCKET_SECURE
-      if (pcll_send(client->connection, data, length) < 0) {
-        perror("[csocket-server]: Failed to send data");
+    if (send(client->socket, data, length, 0) < 0) {
+      perror("[csocket-server]: Failed to send data");
 
-        return -1;
-      }
-    #else
-      if (send(client->socket, data, length, 0) < 0) {
-        perror("[csocket-server]: Failed to send data");
-
-        return -1;
-      }
-    #endif
+      return -1;
+    }
   #endif
 
   return 0;
 }
 
 int csocket_close_client(struct csocket_server_client *client) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    #ifdef CSOCKET_SECURE
-      pcll_shutdown(client->connection);
-    #endif
+  #ifdef CSOCKET_SECURE
+    pcll_shutdown(client->connection);
+  #endif
 
+  #ifdef _WIN32
+    closesocket(client->socket);
+  #else
     close(client->socket);
   #endif
 
@@ -128,39 +125,36 @@ int csocket_close_client(struct csocket_server_client *client) {
 }
 
 int csocket_server_recv(struct csocket_server_client *client, char *buffer, size_t length) {
-  #ifdef _WIN32
-    // Not supported yet
+  #ifdef CSOCKET_SECURE
+    int bytes = pcll_recv(client->connection, buffer, length);
+    if (bytes <= 0) {
+      perror("[csocket-server]: Failed to receive data");
+
+      return -1;
+    }
+
+    return bytes;
   #else
-    #ifdef CSOCKET_SECURE
-      int bytes = pcll_recv(client->connection, buffer, length);
-      if (bytes <= 0) {
-        perror("[csocket-server]: Failed to receive data");
+    int bytes = recv(client->socket, buffer, length, 0);
+    if (bytes < 0) {
+      perror("[csocket-server]: Failed to receive data");
 
-        return -1;
-      }
+      return -1;
+    }
 
-      return bytes;
-    #else
-      int bytes = recv(client->socket, buffer, length, 0);
-      if (bytes < 0) {
-        perror("[csocket-server]: Failed to receive data");
-
-        return -1;
-      }
-
-      return bytes;
-    #endif
+    return bytes;
   #endif
 }
 
 int csocket_server_close(struct csocket_server *server) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    #ifdef CSOCKET_SECURE
-      pcll_free(&server->connection);
-    #endif
+  #ifdef CSOCKET_SECURE
+    pcll_free(&server->connection);
+  #endif
 
+  #ifdef _WIN32
+    closesocket(server->socket);
+    WSACleanup();
+  #else
     close(server->socket);
   #endif
 
@@ -168,25 +162,13 @@ int csocket_server_close(struct csocket_server *server) {
 }
 
 unsigned int csocket_server_client_get_id(struct csocket_server_client *client) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    return client->socket;
-  #endif
+  return (unsigned int)client->socket;
 }
 
 char *csocket_server_client_get_ip(struct csocket_server_client *client) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    return inet_ntoa(client->address.sin_addr);
-  #endif
+  return inet_ntoa(client->address.sin_addr);
 }
 
 unsigned int csocket_server_client_get_port(struct csocket_server_client *client) {
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    return ntohs(client->address.sin_port);
-  #endif
+  return ntohs(client->address.sin_port);
 }

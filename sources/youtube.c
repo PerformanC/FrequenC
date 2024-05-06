@@ -42,6 +42,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
   struct httpclient_request_params request = {
     .host = "www.youtube.com",
     .port = 443,
+    .secure = true,
     .method = "POST",
     .path = "/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false",
     .headers_length = 2,

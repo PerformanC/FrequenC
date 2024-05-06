@@ -1,7 +1,7 @@
 #ifndef HTTPCLIENT_H
 #define HTTPCLIENT_H
 
-#include "pcll.h"
+#include "csocket-client.h"
 
 #include "types.h"
 #include "httpparser.h"
@@ -9,6 +9,7 @@
 struct httpclient_request_params {
   char *host;
   int port;
+  bool secure;
   char *method;
   char *path;
   int headers_length;
@@ -27,13 +28,10 @@ struct httpclient_response {
   size_t body_length;
   int finished;
   int chunk_length;
-  struct pcll_connection connection;
-  int socket;
+  struct csocket_client connection;
 };
 
 int httpclient_request(struct httpclient_request_params *request, struct httpclient_response *httpResponse);
-
-int httpclient_unsafe_request(struct httpclient_request_params *request, struct httpclient_response *httpResponse);
 
 void httpclient_shutdown(struct httpclient_response *response);
 

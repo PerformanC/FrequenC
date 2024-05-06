@@ -13,12 +13,12 @@ The standalone audio-sending node written in C.
 
 ## Dependencies
 
-- [`OpenSSL`](https://www.openssl.org/)
-
-> [!NOTE]
-> The PerformanC Organization recommends the use of the latest version of OpenSSL.
+- [`OpenSSL`](https://www.openssl.org/) or [`WolfSSL`](https://www.wolfssl.com/)
 
 ## Installation
+
+> [!IMPORTANT]
+> FrequenC as of now only supports Linux. Windows support is WIP and experimental.
 
 ### 1. Clone the repository
 

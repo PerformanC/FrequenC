@@ -1,16 +1,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-/* TODO: Create C* library for use of numerous SSL libraries. */
-#include <openssl/ssl.h>
 
 #include "sha1.h"
 #include "base64.h"
 #include "csocket-server.h"
 #include "tcplimits.h"
+#include "csocket-client.h"
 
 #include "httpclient.h"
 #include "utils.h"
@@ -84,6 +80,7 @@ void frequenc_gen_accept_key(char *key, char *output) {
   SHA1CFinal((unsigned char *)results, &sha);
 
   b64_encode((unsigned char *)results, output, sizeof(results));
+  output[28] = '\0';
 }
 
 void frequenc_key_to_base64(char *key, char *output) {
@@ -232,12 +229,12 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   size_t continue_buffer_length = 0;
 
   while (1) {
-    int len = pcll_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
+    int len = csocket_client_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
     if (len == 0) {
       perror("[websocket]: Connection closed");
 
       goto exit;
-    } else if (len == PCLL_ERROR) {
+    } else if (len == CSOCKET_CLIENT_ERROR) {
       perror("[websocket]: Failed to receive data");
 
       goto exit;
@@ -306,7 +303,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       case 9: {
         int pong[] = { 0x8A, 0x00 };
 
-        if (pcll_send(&response->connection, (char *)pong, 2) == PCLL_ERROR) {
+        if (csocket_client_send(&response->connection, (char *)pong, 2) == PCLL_ERROR) {
           perror("[websocket]: Failed to send pong");
 
           goto exit;
@@ -391,7 +388,7 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  if (pcll_send(&response->connection, (char *)buffer, payload_start_index + message_length) == PCLL_ERROR) {
+  if (csocket_client_send(&response->connection, (char *)buffer, payload_start_index + message_length) == PCLL_ERROR) {
     perror("[websocket]: Failed to send message");
 
     frequenc_unsafe_free(buffer);

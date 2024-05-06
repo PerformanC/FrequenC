@@ -13,7 +13,8 @@
 #endif
 
 #ifdef _WIN32
-  // Not supported yet
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
 #else
   #include <sys/socket.h>
   #include <netinet/in.h>
@@ -24,12 +25,13 @@
 
 struct csocket_server {
   struct csocket_server_config *config;
-  int socket;
   #ifdef _WIN32
-    // Not supported yet
+    WSADATA wsa;
+    SOCKET socket;
   #else
-    struct sockaddr_in address;
+    int socket;
   #endif
+  struct sockaddr_in address;
   int port;
   #ifdef CSOCKET_SECURE
     SSL_CTX *ctx;

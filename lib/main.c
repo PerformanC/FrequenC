@@ -128,7 +128,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     frequenc_free_client_info(&parsed_client_info);
 
-    char accept_key[32 + 1];
+    char accept_key[28 + 1];
     frequenc_gen_accept_key(sec_websocket_key->value, accept_key);
 
     struct httpserver_response response = {
