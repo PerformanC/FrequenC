@@ -118,12 +118,12 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
   }
 
   printf(
-    "[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %.*s\n - Title: %.*s\n - Author: %.*s\n - Length: %lu\n - Identifier: %.*s\n - Is Stream: %s\n - URI: %.*s\n - Artwork URL: %.*s\n - ISRC: %.*s\n - Source Name: %.*s\n",
+    "[track]: Successfully decoded track.\n - Version: %d\n - Encoded: %.*s\n - Title: %.*s\n - Author: %.*s\n - Length: %zu\n - Identifier: %.*s\n - Is Stream: %s\n - URI: %.*s\n - Artwork URL: %.*s\n - ISRC: %.*s\n - Source Name: %.*s\n",
     version,
     (int)track->length, track->string,
     (int)result->title.length, result->title.string,
     (int)result->author.length, result->author.string,
-    result->length,
+    (size_t)result->length,
     (int)result->identifier.length, result->identifier.string,
     result->is_stream ? "true" : "false",
     (int)result->uri.length, result->uri.string,

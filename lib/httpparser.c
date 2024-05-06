@@ -65,7 +65,6 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   if (strcmp(http_request->version, "1.1")) return -1;
 
-  int i = 0;
   int content_length = 0;
   struct tstr_string_token last_header = {
     .start = 0,
@@ -79,24 +78,22 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
     struct tstr_string_token header_name;
     tstr_find_between(&header_name, request, NULL, header.start, ": ", header.end);
 
-    if (header_name.start == 0 || header_name.end == 0) return -1;
+    if (header_name.start == 0 || header_name.end == 0 || http_request->headers_length >= http_request->headers_max_length) return -1;
 
     int key_length = header_name.end - header_name.start;
     int value_length = header.end - header_name.end - 2;
 
-    frequenc_fast_copy((char *)request + header_name.start, http_request->headers[i].key, key_length);
-    _httpparser_to_lower_case(http_request->headers[i].key);
-    frequenc_fast_copy((char *)request + header_name.end + 2, http_request->headers[i].value, value_length);
+    frequenc_fast_copy((char *)request + header_name.start, http_request->headers[http_request->headers_length].key, key_length);
+    _httpparser_to_lower_case(http_request->headers[http_request->headers_length].key);
+    frequenc_fast_copy((char *)request + header_name.end + 2, http_request->headers[http_request->headers_length].value, value_length);
 
-    if (strcmp(http_request->headers[i].key, "content-length") == 0)
+    if (strcmp(http_request->headers[http_request->headers_length].key, "content-length") == 0)
       content_length = atoi(request + header.start + sizeof("content-length: ") - 1);
 
     last_header = header;
 
-    i++;
+    http_request->headers_length++;
   }
-
-  http_request->headers_length = i;
 
   struct httpparser_header *transfer_encoding_header = httpparser_get_header(http_request, "transfer-encoding");
 

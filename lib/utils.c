@@ -104,12 +104,25 @@ unsigned int frequenc_safe_seeding(void) {
   unsigned int seed = 0;
   
   #ifdef _WIN32
-    if (rand_s(&seed) != 0) {
+    HCRYPTPROV h_crypt_prov;
+    if (!CryptAcquireContext(&h_crypt_prov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+      perror("[utils:Windows]: Failed to acquire cryptographic context");
+
+      exit(1);
+    }
+
+    if (!CryptGenRandom(h_crypt_prov, sizeof(seed), (BYTE *) &seed)) {
+      CryptReleaseContext(h_crypt_prov, 0);
+
       perror("[utils:Windows]: Failed to generate random seed");
 
       exit(1);
     }
-  #elif __linux__
+
+    CryptReleaseContext(h_crypt_prov, 0);
+
+    return seed;
+  #elif defined __linux__
     if (getrandom(&seed, sizeof(seed), 0) == -1) {
       perror("[utils:Linux]: Failed to generate random seed");
 

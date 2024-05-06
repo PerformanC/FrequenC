@@ -23,7 +23,7 @@
 
 int csocket_server_init(struct csocket_server *server) {
   #ifdef _WIN32
-    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
+    if (WSAStartup(MAKEWORD(2,2), &server->wsa) != 0) {
       perror("[csocket-server]: Failed to initialize Winsock");
 
       return -1;
@@ -40,21 +40,43 @@ int csocket_server_init(struct csocket_server *server) {
     }
   #endif
 
-  if ((server->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    perror("[csocket-server]: Failed to create socket");
+  #ifdef _WIN32
+    server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server->socket == INVALID_SOCKET) {
+      perror("[csocket-server]: Failed to create socket");
 
-    return -1;
-  }
+      return -1;
+    }
+  #else
+    server->socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server->socket < 0) {
+      perror("[csocket-server]: Failed to create socket");
 
-  struct sockaddr_in serverOptions = {
+      return -1;
+    }
+  #endif
+
+  struct sockaddr_in server_options = {
     .sin_addr.s_addr = INADDR_ANY,
     .sin_family = AF_INET,
     .sin_port = htons(server->port)
   };
 
-  setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &serverOptions, sizeof(serverOptions));
+  #ifdef _WIN32
+    if (setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&server_options, sizeof(server_options)) == SOCKET_ERROR) {
+      perror("[csocket-server]: Failed to set socket options");
 
-  if (bind(server->socket, (struct sockaddr *)&serverOptions, sizeof(serverOptions)) < 0) {
+      return -1;
+    }
+  #else
+    if (setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &server_options, sizeof(server_options)) < 0) {
+      perror("[csocket-server]: Failed to set socket options");
+
+      return -1;
+    }
+  #endif
+
+  if (bind(server->socket, (struct sockaddr *)&server_options, sizeof(server_options)) < 0) {
     perror("[csocket-server]: Failed to bind socket");
 
     return -1;

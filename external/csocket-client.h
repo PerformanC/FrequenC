@@ -20,6 +20,7 @@
 struct csocket_client {
   #ifdef _WIN32
     SOCKET socket;
+    WSADATA wsa;
   #else
     int socket;
   #endif

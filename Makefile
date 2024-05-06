@@ -31,9 +31,16 @@ OBJ_DIR = obj
 
 CVERSION = -std=c99
 CFLAGS ?= -Ofast -march=native -fno-signed-zeros -fno-trapping-math -funroll-loops
-LDFLAGS ?= -Iinclude -Iexternal -Isources -pthread
+LDFLAGS ?= -Iinclude -Iexternal -Isources
+
+ifeq ($(OS),Windows_NT)
+	LDFLAGS += -lwsock32
+else
+	LDFLAGS += -pthread
+endif
+
 OPTIONS = -DPORT=$(PORT) -DAUTHORIZATION=\"$(AUTHORIZATION)\" -DALLOW_UNSECURE_RANDOM=$(ALLOW_UNSECURE_RANDOM) $(if $(CSOCKET_SECURE),-DCSOCKET_SECURE -DCSOCKET_KEY=\"$(CSOCKET_KEY)\" -DCSOCKET_CERT=\"$(CSOCKET_CERT)\",) $(if $(TCPLIMITS_EXPERIMENTAL_SAVE_MEMORY),-DTCPLIMITS_EXPERIMENTAL_SAVE_MEMORY,) -DHARDCODED_SESSION_ID=$(HARDCODED_SESSION_ID) -DGITHUB_COMMIT_SHA=\"$(GITHUB_COMMIT_SHA)\" -DGITHUB_BRANCH=\"$(GITHUB_BRANCH)\" -DPCLL_SSL_LIBRARY=$(PCLL_SSL_LIBRARY)
-CHECK_FLAGS = -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow 
+CHECK_FLAGS = -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wno-stringop-overread
 
 SRCS = $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c))
 OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(notdir $(SRCS)))

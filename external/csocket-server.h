@@ -40,11 +40,7 @@ struct csocket_server {
 
 struct csocket_server_client {
   int socket;
-  #ifdef _WIN32
-    // Not supported yet
-  #else
-    struct sockaddr_in address;
-  #endif
+  struct sockaddr_in address;
   #ifdef CSOCKET_SECURE
     SSL *ssl;
   #endif

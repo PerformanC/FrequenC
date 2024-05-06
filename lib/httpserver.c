@@ -140,6 +140,8 @@ void *listen_messages(void *args) {
     httpparser_init_request(&request, headers, 10);
 
     if (httpparser_parse_request(&request, payload) != 0) {
+      httpparser_free_request(&request);
+
       printf("[httpparser]: Failed to parse request.\n - Socket: %d\n", csocket_server_client_get_id(&client));
 
       goto invalid_request;

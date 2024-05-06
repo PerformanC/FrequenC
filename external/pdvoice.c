@@ -8,11 +8,13 @@
 
 #include "pjsonb.h"
 #include "jsmn-find.h"
-#include "cthreads.h"
 
 #include "httpclient.h"
 #include "websocket.h"
 #include "utils.h"
+
+/* mingw-64 requires winsock2.h to be included before windows.h */
+#include "cthreads.h"
 
 #include "pdvoice.h"
 
@@ -82,12 +84,21 @@ void *_pdvoice_udp(void *data) {
     return NULL;
   }
 
-  int enable = 1;
-  if (setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
-    printf("[pdvoice]: Failed to set UDP socket options.\n");
+  #ifdef _WIN32
+    BOOL enable = 1;
+    if (setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&enable, sizeof(BOOL)) == -1) {
+      printf("[pdvoice]: Failed to set UDP socket options.\n");
 
-    return NULL;
-  }
+      return NULL;
+    }
+  #else
+    int enable = 1;
+    if (setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
+      printf("[pdvoice]: Failed to set UDP socket options.\n");
+
+      return NULL;
+    }
+  #endif
 
   struct sockaddr_in udp_server;
   udp_server.sin_family = AF_INET;
@@ -145,7 +156,11 @@ void *_pdvoice_udp(void *data) {
 
   cthreads_mutex_unlock(thread_data->connection->mutex);
 
-  int sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
+  #ifdef _WIN32
+    int sent = sendto(udp_socket, (const char *)discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
+  #else
+    int sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
+  #endif
   if (sent == -1) {
     perror("[pdvoice]: Failed to send discovery packet to UDP socket");
 
@@ -429,9 +444,7 @@ void pdvoice_free(struct pdvoice *connection) {
     connection->hb_thread_data = NULL;
   }
 
-  if ((void *)&connection->ws_thread != NULL) {
-    cthreads_thread_cancel(connection->ws_thread);
-  }
+  cthreads_thread_cancel(connection->ws_thread);
 
   if (connection->ws_connection_info != NULL) {
     free(connection->ws_connection_info);

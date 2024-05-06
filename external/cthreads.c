@@ -324,6 +324,8 @@ int cthreads_cond_destroy(struct cthreads_cond *cond) {
   #endif
 
   #ifdef _WIN32
+    (void) cond;
+
     return 0;
   #else
     return pthread_cond_destroy(&cond->pCond);

@@ -33,13 +33,19 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
 
       return -1;
     }
+
+    if ((client->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
+      perror("[csocket-client]: Failed to create socket");
+
+      return -1;
+    }
+  #else
+    if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      perror("[csocket-client]: Failed to create socket");
+
+      return -1;
+    }
   #endif
-
-  if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    perror("[csocket-client]: Failed to create socket");
-
-    return -1;
-  }
 
   struct hostent *host = gethostbyname(hostname);
   if (!host) {
