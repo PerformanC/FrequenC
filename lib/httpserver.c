@@ -139,7 +139,7 @@ void *listen_messages(void *args) {
     struct httpparser_header headers[10];
     httpparser_init_request(&request, headers, 10);
 
-    if (httpparser_parse_request(&request, payload) != 0) {
+    if (httpparser_parse_request(&request, payload, payload_size) != 0) {
       httpparser_free_request(&request);
 
       printf("[httpparser]: Failed to parse request.\n - Socket: %d\n", csocket_server_client_get_id(&client));

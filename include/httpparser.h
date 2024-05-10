@@ -39,7 +39,7 @@ struct httpparser_response {
 
 void httpparser_init_request(struct httpparser_request *httpRequest, struct httpparser_header *buffer, int length);
 
-int httpparser_parse_request(struct httpparser_request *httpRequest, const char *request);
+int httpparser_parse_request(struct httpparser_request *httpRequest, const char *request, int request_length);
 
 void httpparser_free_request(struct httpparser_request *httpRequest);
 

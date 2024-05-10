@@ -33,7 +33,7 @@ void _httpparser_to_lower_case(char *str) {
   }
 }
 
-int httpparser_parse_request(struct httpparser_request *http_request, const char *request) {
+int httpparser_parse_request(struct httpparser_request *http_request, const char *request, int request_length) {
   struct tstr_string_token headers_end;
   tstr_find_between(&headers_end, request, NULL, 0, "\r\n\r\n", 0);
 
@@ -113,20 +113,23 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
       frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
 
       http_request->chunk_length = strtol(chunk_size_str, NULL, 16);
+
+      int requested_length = (request_length + headers_end.end - 4) - chunk_size.end - 2;
+
+      if (requested_length != content_length) return -1;
+
+      if (requested_length > http_request->chunk_length) requested_length = http_request->chunk_length;
+
       http_request->body = frequenc_safe_malloc((http_request->chunk_length + 1) * sizeof(char));
-      http_request->body_length = snprintf(http_request->body, (http_request->chunk_length + 1), "%s", body_and_length + chunk_size.end + 2);
+      frequenc_fast_copy(request + headers_end.end + 4, http_request->body, requested_length);
 
       /* TODO: Implement chunk handling */
       http_request->finished = http_request->body_length == (size_t)http_request->chunk_length;
     } else {
+      if ((request_length - headers_end.end - 4) != content_length) return -1;
+
       http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
-      http_request->body_length = snprintf(http_request->body, (content_length + 1), "%s", request + headers_end.end + 4);
-
-      if (http_request->body_length != (size_t)content_length) {
-        frequenc_unsafe_free(http_request->body);
-
-        return -1;
-      }
+      frequenc_fast_copy(request + headers_end.end + 4, http_request->body, content_length);
 
       http_request->body_length = content_length;
       http_request->finished = true;
