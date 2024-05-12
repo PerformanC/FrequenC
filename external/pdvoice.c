@@ -77,12 +77,21 @@ void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_fr
 void *_pdvoice_udp(void *data) {
   struct _pdvoice_udp_thread_data *thread_data = data;
 
-  int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
-  if (udp_socket == -1) {
-    printf("[pdvoice]: Failed to create UDP socket. Check your firewall.\n");
+  #ifdef _WIN32
+    SOCKET udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_socket == INVALID_SOCKET) {
+      printf("[pdvoice]: Failed to create UDP socket. Check your firewall.\n");
 
-    return NULL;
-  }
+      return NULL;
+    }
+  #else
+    int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_socket == -1) {
+      printf("[pdvoice]: Failed to create UDP socket. Check your firewall.\n");
+
+      return NULL;
+    }
+  #endif
 
   #ifdef _WIN32
     BOOL enable = 1;

@@ -225,7 +225,7 @@ unsigned long cthreads_thread_id(struct cthreads_thread thread);
  *
  * @param code Pointer to the thread exit code.
  */
-void cthreads_thread_exit(void *code);
+void cthreads_thread_exit(unsigned int code);
 
 /**
  * Cancels a thread.

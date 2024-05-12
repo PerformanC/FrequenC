@@ -3,12 +3,17 @@
 !.gitignore
 !.github
 !.github/**/*
+!FrequenC.sln
+!FrequenC.vcxproj
+!FrequenC.vcxproj.filters
+!FrequenC.vcxproj.user
 !API.md
 !CLIENT_DEVELOPMENT.md
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !LICENSE
 !Makefile
+!packages.config
 !README.md
 !tests
 !tests/*

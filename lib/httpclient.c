@@ -64,7 +64,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   struct tstr_string http_request;
   _httpclient_build_request(request, &http_request);
 
-  int ret = csocket_client_send(&http_response->connection, http_request.string, http_request.length);
+  int ret = csocket_client_send(&http_response->connection, http_request.string, (int)http_request.length);
   if (ret == CSOCKET_CLIENT_ERROR) {
     csocket_client_close(&http_response->connection);
 
@@ -97,7 +97,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   }
 
   if (http_response->finished == 0) {
-    int chunk_size_left = http_response->chunk_length - http_response->body_length;
+    int chunk_size_left = (int)((size_t)http_response->chunk_length - http_response->body_length);
     
     read_chunk:
 

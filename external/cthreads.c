@@ -131,7 +131,7 @@ unsigned long cthreads_thread_id(struct cthreads_thread thread) {
   #endif
 }
 
-void cthreads_thread_exit(void *code) {
+void cthreads_thread_exit(unsigned int code) {
   #ifdef CTHREADS_DEBUG
     printf("cthreads_thread_exit\n");
   #endif
@@ -143,7 +143,7 @@ void cthreads_thread_exit(void *code) {
       ExitThread((DWORD)(uintptr_t)code);
     #endif
   #else
-    pthread_exit(code);
+    pthread_exit((void *)&code);
   #endif
 }
 

@@ -89,7 +89,7 @@ void frequenc_key_to_base64(char *key, char *output) {
   SHA1C_CTX sha;
 
   SHA1CInit(&sha);
-  SHA1CUpdate(&sha, (const unsigned char *)key, strlen(key));
+  SHA1CUpdate(&sha, (const unsigned char *)key, (uint32_t)strlen(key));
   SHA1CFinal((unsigned char *)results, &sha);
 
   b64_encode((unsigned char *)results, output, sizeof(results));
@@ -114,7 +114,6 @@ void frequenc_set_ws_response_body(struct frequenc_ws_message *response, char *b
 
 void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   size_t payload_start_index = 2;
-  size_t payload_length = response->payload_length;
 
   unsigned int mask[] = { 0, 0, 0, 0 };
   
@@ -127,32 +126,28 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
 
   payload_start_index += 4;
 
-  if (payload_length >= 65536) {
-    payload_start_index += 8;
-    payload_length = 127;
-  } else if (payload_length > 125) {
-    payload_start_index += 2;
-    payload_length = 126;
-  }
+  if (response->payload_length >= 65536) payload_start_index += 8;
+  else if (response->payload_length > 125) payload_start_index += 2;
 
   unsigned char *buffer = frequenc_safe_malloc(payload_start_index + response->payload_length * sizeof(unsigned char));
 
   buffer[0] = response->opcode | 128;
-  buffer[1] = payload_length;
 
-  if (payload_length == 126) {
-    buffer[2] = response->payload_length >> 8;
-    buffer[3] = response->payload_length & 0xFF;
-  } else if (payload_length == 127) {
+  if (response->payload_length >= 65536) {
     buffer[2] = buffer[3] = 0;
-    buffer[4] = response->payload_length >> 56;
-    buffer[5] = response->payload_length >> 48;
-    buffer[6] = response->payload_length >> 40;
-    buffer[7] = response->payload_length >> 32;
-    buffer[8] = response->payload_length >> 24;
-    buffer[9] = response->payload_length >> 16;
-    buffer[10] = response->payload_length >> 8;
-    buffer[11] = response->payload_length & 0xFF;
+    buffer[4] = (unsigned char)(response->payload_length >> 56);
+    buffer[5] = (unsigned char)(response->payload_length >> 48);
+    buffer[6] = (unsigned char)(response->payload_length >> 40);
+    buffer[7] = (unsigned char)(response->payload_length >> 32);
+    buffer[8] = (unsigned char)(response->payload_length >> 24);
+    buffer[9] = (unsigned char)(response->payload_length >> 16);
+    buffer[10] = (unsigned char)(response->payload_length >> 8);
+    buffer[11] = (unsigned char)(response->payload_length & 0xFF);
+  } else if (response->payload_length > 125) {
+    buffer[2] = (unsigned char)(response->payload_length >> 8);
+    buffer[3] = (unsigned char)(response->payload_length & 0xFF);
+  } else {
+    buffer[1] = (unsigned char)response->payload_length;
   }
 
   memcpy(buffer + payload_start_index, response->buffer, response->payload_length);
@@ -167,7 +162,13 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  csocket_server_send(response->client, (char *)buffer, payload_start_index + response->payload_length);
+  if (csocket_server_send(response->client, (char *)buffer, (int)(payload_start_index + response->payload_length)) == PCLL_ERROR) {
+    perror("[websocket]: Failed to send message");
+
+    frequenc_unsafe_free(buffer);
+
+    return;
+  }
 
   frequenc_unsafe_free(buffer);
 
@@ -335,7 +336,6 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
 int frequenc_send_text_ws_client(struct httpclient_response *response, char *message, size_t message_length) {
   int payload_start_index = 2;
-  size_t payload_length = message_length;
 
   unsigned int mask[] = { 0, 0, 0, 0 };
   
@@ -348,32 +348,28 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
 
   payload_start_index += 4;
 
-  if (payload_length >= 65536) {
-    payload_start_index += 8;
-    payload_length = 127;
-  } else if (payload_length > 125) {
-    payload_start_index += 2;
-    payload_length = 126;
-  }
+  if (message_length >= 65536) payload_start_index += 8;
+  else if (message_length > 125) payload_start_index += 2;
 
   unsigned char *buffer = frequenc_safe_malloc(payload_start_index + message_length * sizeof(unsigned char));
 
   buffer[0] = 1 | 128;
-  buffer[1] = payload_length;
 
-  if (payload_length == 126) {
-    buffer[2] = message_length >> 8;
-    buffer[3] = message_length & 0xFF;
-  } else if (payload_length == 127) {
+  if (message_length >= 65536) {
     buffer[2] = buffer[3] = 0;
-    buffer[4] = message_length >> 56;
-    buffer[5] = message_length >> 48;
-    buffer[6] = message_length >> 40;
-    buffer[7] = message_length >> 32;
-    buffer[8] = message_length >> 24;
-    buffer[9] = message_length >> 16;
-    buffer[10] = message_length >> 8;
-    buffer[11] = message_length & 0xFF;
+    buffer[4] = (unsigned char)(message_length >> 56);
+    buffer[5] = (unsigned char)(message_length >> 48);
+    buffer[6] = (unsigned char)(message_length >> 40);
+    buffer[7] = (unsigned char)(message_length >> 32);
+    buffer[8] = (unsigned char)(message_length >> 24);
+    buffer[9] = (unsigned char)(message_length >> 16);
+    buffer[10] = (unsigned char)(message_length >> 8);
+    buffer[11] = (unsigned char)(message_length & 0xFF);
+  } else if (message_length > 125) {
+    buffer[2] = (unsigned char)(message_length >> 8);
+    buffer[3] = (unsigned char)(message_length & 0xFF);
+  } else {
+    buffer[1] = (unsigned char)message_length;
   }
 
   memcpy(buffer + payload_start_index, message, message_length);
@@ -388,7 +384,7 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  if (csocket_client_send(&response->connection, (char *)buffer, payload_start_index + message_length) == PCLL_ERROR) {
+  if (csocket_client_send(&response->connection, (char *)buffer, (int)(payload_start_index + message_length)) == PCLL_ERROR) {
     perror("[websocket]: Failed to send message");
 
     frequenc_unsafe_free(buffer);

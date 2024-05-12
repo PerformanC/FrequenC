@@ -12,8 +12,8 @@ struct httpserver {
   struct csocket_server server;
   struct httpserver_client *sockets;
   int *available_sockets;
-  size_t sockets_capacity;
-  size_t sockets_length;
+  int sockets_capacity;
+  int sockets_length;
   void (*handler)(int, char*);
 };
 
@@ -29,7 +29,7 @@ struct httpserver_response {
   int headers_max_length;
   struct httpserver_header *headers;
   char *body;
-  size_t body_length;
+  int body_length;
 };
 
 struct _httpserver_connection_data {

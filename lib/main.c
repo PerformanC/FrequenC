@@ -633,7 +633,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct tstr_string encoded_track = { 0 };
     char payload_length[4];
     frequenc_encode_track(&decoded_track, &encoded_track);
-    frequenc_stringify_int(encoded_track.length, payload_length, sizeof(payload_length));
+    frequenc_stringify_int((int)encoded_track.length, payload_length, sizeof(payload_length));
 
     struct httpserver_response response = {
       .client = client,
@@ -650,7 +650,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       },
       .headers_length = 2,
       .body = encoded_track.string,
-      .body_length = encoded_track.length
+      .body_length = (int)encoded_track.length
     };
 
     httpserver_send_response(&response);
@@ -685,7 +685,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     printf("[main]: Done loading tracks request: %s\n", identifier->value);
 
     char payload_length[8 + 1];
-    frequenc_stringify_int(result.length, payload_length, sizeof(payload_length));
+    frequenc_stringify_int((int)result.length, payload_length, sizeof(payload_length));
 
     struct httpserver_response response = {
       .client = client,
@@ -702,7 +702,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       },
       .headers_length = 2,
       .body = result.string,
-      .body_length = result.length
+      .body_length = (int)result.length
     };
 
     httpserver_send_response(&response);
@@ -1259,3 +1259,11 @@ int main(void) {
 
   httpserver_handle_request(&server, callback, ws_callback, disconnect_callback);
 }
+
+#ifdef _WIN32
+  int APIENTRY WinMain(HINSTANCE h_instance, HINSTANCE h_prev_instance, LPSTR lp_cmd_line, int n_cmd_show) {
+    (void) h_instance; (void) h_prev_instance; (void) lp_cmd_line; (void) n_cmd_show;
+
+    return main();
+  }
+#endif

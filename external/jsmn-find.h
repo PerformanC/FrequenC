@@ -394,7 +394,7 @@ jsmnf_find_path(const struct jsmnf_pair *head,
 
     for (i = 0; i < depth; ++i) {
         if (!iter) continue;
-        found = jsmnf_find(iter, js, path[i], strlen(path[i]));
+        found = jsmnf_find(iter, js, path[i], (int)strlen(path[i]));
         if (!found) break;
         iter = found;
     }
@@ -585,24 +585,24 @@ static unsigned
 _jsmnf_utf8_encode(unsigned long value, char utf8_seq[4])
 {
     if (value <= 0x7F) {
-        utf8_seq[0] = value;
+        utf8_seq[0] = (char)value;
         return 1;
     }
     if (value <= 0x7FF) {
-        utf8_seq[0] = (value >> 6) | 0xC0;
-        utf8_seq[1] = (value & 0x3F) | 0x80;
+        utf8_seq[0] = (char)((value >> 6) | 0xC0);
+        utf8_seq[1] = (char)((value & 0x3F) | 0x80);
         return 2;
     }
     if (value <= 0xFFFF) {
-        utf8_seq[0] = (value >> 12) | 0xE0;
-        utf8_seq[1] = ((value >> 6) & 0x3F) | 0x80;
-        utf8_seq[2] = (value & 0x3F) | 0x80;
+        utf8_seq[0] = (char)((value >> 12) | 0xE0);
+        utf8_seq[1] = (char)(((value >> 6) & 0x3F) | 0x80);
+        utf8_seq[2] = (char)((value & 0x3F) | 0x80);
         return 3;
     }
-    utf8_seq[0] = (value >> 18) | 0xF0;
-    utf8_seq[1] = ((value >> 12) & 0x3F) | 0x80;
-    utf8_seq[2] = ((value >> 6) & 0x3F) | 0x80;
-    utf8_seq[3] = (value & 0x3F) | 0x80;
+    utf8_seq[0] = (char)((value >> 18) | 0xF0);
+    utf8_seq[1] = (char)(((value >> 12) & 0x3F) | 0x80);
+    utf8_seq[2] = (char)(((value >> 6) & 0x3F) | 0x80);
+    utf8_seq[3] = (char)((value & 0x3F) | 0x80);
     return 4;
 }
 

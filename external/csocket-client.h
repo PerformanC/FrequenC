@@ -30,9 +30,9 @@ struct csocket_client {
 
 int csocket_client_init(struct csocket_client *client, bool secure, char *hostname, int port);
 
-int csocket_client_send(struct csocket_client *client, char *data, size_t size);
+int csocket_client_send(struct csocket_client *client, char *data, int size);
 
-int csocket_client_recv(struct csocket_client *client, char *buffer, size_t size);
+int csocket_client_recv(struct csocket_client *client, char *buffer, int size);
 
 void csocket_client_close(struct csocket_client *client);
 

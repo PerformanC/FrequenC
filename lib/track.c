@@ -53,7 +53,7 @@ void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result)
 }
 
 int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_string *track) {
-  int output_length = b64_decoded_size(track->string, track->length) + 1;
+  size_t output_length = b64_decoded_size(track->string, (int)track->length);
   unsigned char *output = frequenc_safe_malloc(output_length * sizeof(unsigned char));
   memset(output, 0, output_length);
 
@@ -71,8 +71,8 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
 
   int buffer_length = _read_int(&buf) & ~(1 << 30);
 
-  if (buffer_length != output_length - 4 - 1) {
-    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %d\n", buffer_length, output_length - 4 - 1);
+  if ((size_t)buffer_length != output_length - 4 - 1) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %zu\n", buffer_length, output_length - 4 - 1);
 
     frequenc_unsafe_free(output);
 
@@ -109,8 +109,8 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
   }
   _read_utf(&buf, &result->source_name);
 
-  if (buf.position != output_length - 1) {
-    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %d\n", buf.position, output_length - 1);
+  if ((size_t)buf.position != output_length - 1) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %zu\n", buf.position, output_length - 1);
 
     frequenc_unsafe_free(output);
 
@@ -166,7 +166,7 @@ void _write_long(unsigned char *buffer, size_t *position, uint64_t value) {
 }
 
 void _write_utf(unsigned char *buffer, size_t *position, struct tstr_string value) {
-  _write_unsigned_short(buffer, position, value.length);
+  _write_unsigned_short(buffer, position, (int)value.length);
   memcpy(buffer + *position, value.string, value.length);
 
   *position += value.length;
@@ -258,7 +258,7 @@ void frequenc_track_info_to_json(struct frequenc_track_info *track_info, struct 
 
   pjsonb_set_string(track_json, "title", track_info->title.string, track_info->title.length);
   pjsonb_set_string(track_json, "author", track_info->author.string, track_info->author.length);
-  pjsonb_set_int(track_json, "length", track_info->length);
+  pjsonb_set_size_t(track_json, "length", track_info->length);
   pjsonb_set_string(track_json, "identifier", track_info->identifier.string, track_info->identifier.length);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
   pjsonb_set_string(track_json, "uri", track_info->uri.string, track_info->uri.length);
@@ -276,7 +276,7 @@ void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info,
 
   pjsonb_set_string(track_json, "title", track_info->title.string, track_info->title.length);
   pjsonb_set_string(track_json, "author", track_info->author.string, track_info->author.length);
-  pjsonb_set_int(track_json, "length", track_info->length);
+  pjsonb_set_size_t(track_json, "length", track_info->length);
   pjsonb_set_string(track_json, "identifier", track_info->identifier.string, track_info->identifier.length);
   pjsonb_set_bool(track_json, "is_stream", track_info->is_stream);
   pjsonb_set_string(track_json, "uri", track_info->uri.string, track_info->uri.length);

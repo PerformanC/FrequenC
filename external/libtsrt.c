@@ -5,7 +5,6 @@
 */
 
 #include <stdlib.h> // size_t, NULL
-#include <unistd.h>
 
 #include "libtstr.h"
 

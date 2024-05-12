@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\openssl-native.3.0.13\build\native\openssl-native.props" Condition="Exists('packages\openssl-native.3.0.13\build\native\openssl-native.props')" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{7CB47FA0-05FA-48DB-9C3D-1F2F026FCBA4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <AdditionalIncludeDirectories>C:/Program Files (x86)/OpenSSL-Win32/include;external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/Program Files (x86)/OpenSSL-Win32/lib/VC/x86/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>C:/Program Files/OpenSSL-Win64/include;external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/Program Files/OpenSSL-Win64/lib/VC/x64/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <AdditionalIncludeDirectories>C:/Program Files (x86)/OpenSSL-Win32/include;external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/Program Files (x86)/OpenSSL-Win32/lib/VC/x86/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>packages\openssl-native.3.0.13\include;external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Full</Optimization>
+      <FloatingPointModel>Strict</FloatingPointModel>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>packages\openssl-native.3.0.13\lib\win-x64\native;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="external\base64.c" />
+    <ClCompile Include="external\csocket-client.c" />
+    <ClCompile Include="external\csocket-server.c" />
+    <ClCompile Include="external\cthreads.c" />
+    <ClCompile Include="external\libtsrt.c" />
+    <ClCompile Include="external\pcll.c" />
+    <ClCompile Include="external\pdvoice.c" />
+    <ClCompile Include="external\pjsonb.c" />
+    <ClCompile Include="external\queryparser.c" />
+    <ClCompile Include="external\sha1.c" />
+    <ClCompile Include="external\tablec.c" />
+    <ClCompile Include="external\urldecode.c" />
+    <ClCompile Include="lib\httpclient.c" />
+    <ClCompile Include="lib\httpparser.c" />
+    <ClCompile Include="lib\httpserver.c" />
+    <ClCompile Include="lib\main.c" />
+    <ClCompile Include="lib\track.c" />
+    <ClCompile Include="lib\utils.c" />
+    <ClCompile Include="lib\websocket.c" />
+    <ClCompile Include="sources\youtube.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="external\base64.h" />
+    <ClInclude Include="external\chash.h" />
+    <ClInclude Include="external\csocket-client.h" />
+    <ClInclude Include="external\csocket-server.h" />
+    <ClInclude Include="external\cthreads.h" />
+    <ClInclude Include="external\jsmn-find.h" />
+    <ClInclude Include="external\jsmn.h" />
+    <ClInclude Include="external\libtstr.h" />
+    <ClInclude Include="external\pcll.h" />
+    <ClInclude Include="external\pdvoice.h" />
+    <ClInclude Include="external\pjsonb.h" />
+    <ClInclude Include="external\queryparser.h" />
+    <ClInclude Include="external\sha1.h" />
+    <ClInclude Include="external\tablec.h" />
+    <ClInclude Include="external\tcplimits.h" />
+    <ClInclude Include="external\urldecode.h" />
+    <ClInclude Include="include\httpclient.h" />
+    <ClInclude Include="include\httpparser.h" />
+    <ClInclude Include="include\httpserver.h" />
+    <ClInclude Include="include\track.h" />
+    <ClInclude Include="include\types.h" />
+    <ClInclude Include="include\utils.h" />
+    <ClInclude Include="include\websocket.h" />
+    <ClInclude Include="sources\youtube.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\openssl-native.3.0.13\build\native\openssl-native.targets" Condition="Exists('packages\openssl-native.3.0.13\build\native\openssl-native.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\openssl-native.3.0.13\build\native\openssl-native.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\openssl-native.3.0.13\build\native\openssl-native.props'))" />
+    <Error Condition="!Exists('packages\openssl-native.3.0.13\build\native\openssl-native.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\openssl-native.3.0.13\build\native\openssl-native.targets'))" />
+  </Target>
+</Project>

@@ -11,8 +11,6 @@
   #include <sys/socket.h>
   #include <arpa/inet.h>
   #include <unistd.h>
-  #include <signal.h>
-  #include <string.h>
 
   #ifdef CSOCKET_SECURE
     #include "pcll.h"
@@ -114,7 +112,7 @@ int csocket_server_accept(struct csocket_server server, struct csocket_server_cl
   return 0;
 }
 
-int csocket_server_send(struct csocket_server_client *client, char *data, size_t length) {
+int csocket_server_send(struct csocket_server_client *client, char *data, int length) {
   #ifdef CSOCKET_SECURE
     if (pcll_send(client->connection, data, length) < 0) {
       perror("[csocket-server]: Failed to send data");
@@ -146,7 +144,7 @@ int csocket_close_client(struct csocket_server_client *client) {
   return 0;
 }
 
-int csocket_server_recv(struct csocket_server_client *client, char *buffer, size_t length) {
+int csocket_server_recv(struct csocket_server_client *client, char *buffer, int length) {
   #ifdef CSOCKET_SECURE
     int bytes = pcll_recv(client->connection, buffer, length);
     if (bytes <= 0) {
@@ -187,8 +185,8 @@ unsigned int csocket_server_client_get_id(struct csocket_server_client *client) 
   return (unsigned int)client->socket;
 }
 
-char *csocket_server_client_get_ip(struct csocket_server_client *client) {
-  return inet_ntoa(client->address.sin_addr);
+const char *csocket_server_client_get_ip(struct csocket_server_client *client, char *ip) {
+  return inet_ntop(AF_INET, &client->address.sin_addr, ip, INET_ADDRSTRLEN);
 }
 
 unsigned int csocket_server_client_get_port(struct csocket_server_client *client) {

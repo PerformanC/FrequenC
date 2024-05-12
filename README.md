@@ -18,7 +18,7 @@ The standalone audio-sending node written in C.
 ## Installation
 
 > [!IMPORTANT]
-> FrequenC as of now only supports Linux. Windows support is WIP and experimental.
+> For Windows, you can simply click build the project using Visual Studio. Make sure to install the dependencies first.
 
 ### 1. Clone the repository
 

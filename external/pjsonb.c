@@ -48,7 +48,7 @@ void pjsonb_set_int(struct pjsonb *builder, const char *key, int value) {
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + value_length + 4 + key_length + 1);
 
@@ -56,12 +56,48 @@ void pjsonb_set_int(struct pjsonb *builder, const char *key, int value) {
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":", 2);
   builder->position += 2;
 
   builder->position += snprintf(builder->string + builder->position, value_length + 1, "%d", value);
+
+  memcpy(builder->string + builder->position, ",", 1);
+  builder->position++;
+
+  builder->key_state = PJSONB_TO_CLOSE;
+}
+
+void pjsonb_set_size_t(struct pjsonb *builder, const char *key, size_t value) {
+  int value_length = snprintf(NULL, 0, "%zu", value);
+
+  if (key == NULL) {
+    builder->string = realloc(builder->string, builder->position + value_length + 1);
+
+    builder->position += snprintf(builder->string + builder->position, value_length + 1, "%zu", value);
+
+    memcpy(builder->string + builder->position, ",", 1);
+
+    builder->key_state = PJSONB_TO_CLOSE;
+
+    return;
+  }
+
+  size_t key_length = strlen(key);
+
+  builder->string = realloc(builder->string, builder->position + value_length + 4 + key_length + 1);
+
+  builder->string[builder->position] = '"';
+  builder->position++;
+
+  memcpy(builder->string + builder->position, key, key_length);
+  builder->position += (int)key_length;
+
+  memcpy(builder->string + builder->position, "\":", 2);
+  builder->position += 2;
+
+  builder->position += snprintf(builder->string + builder->position, value_length + 1, "%zu", value);
 
   memcpy(builder->string + builder->position, ",", 1);
   builder->position++;
@@ -84,7 +120,7 @@ void pjsonb_set_float(struct pjsonb *builder, const char *key, float value) {
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + value_length + 4 + key_length + 1);
 
@@ -92,7 +128,7 @@ void pjsonb_set_float(struct pjsonb *builder, const char *key, float value) {
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":", 2);
   builder->position += 2;
@@ -122,7 +158,7 @@ void pjsonb_set_bool(struct pjsonb *builder, const char *key, int value) {
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + value_length + 4 + key_length + 1);
 
@@ -130,7 +166,7 @@ void pjsonb_set_bool(struct pjsonb *builder, const char *key, int value) {
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":", 2);
   builder->position += 2;
@@ -152,7 +188,7 @@ void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *valu
     builder->position++;
 
     memcpy(builder->string + builder->position, value, value_length);
-    builder->position += value_length;
+    builder->position += (int)value_length;
 
     memcpy(builder->string + builder->position, "\",", 2);
     builder->position += 2;
@@ -162,7 +198,7 @@ void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *valu
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + value_length + 6 + key_length + 1);
 
@@ -170,13 +206,13 @@ void pjsonb_set_string(struct pjsonb *builder, const char *key, const char *valu
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":\"", 3);
   builder->position += 3;
 
   memcpy(builder->string + builder->position, value, value_length);
-  builder->position += value_length;
+  builder->position += (int)value_length;
 
   memcpy(builder->string + builder->position, "\",", 2);
   builder->position += 2;
@@ -194,7 +230,7 @@ void pjsonb_enter_object(struct pjsonb *builder, const char *key) {
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + 5 + key_length);
 
@@ -202,7 +238,7 @@ void pjsonb_enter_object(struct pjsonb *builder, const char *key) {
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":{", 3);
   builder->position += 3;
@@ -236,7 +272,7 @@ void pjsonb_enter_array(struct pjsonb *builder, const char *key) {
     return;
   }
 
-  int key_length = strlen(key);
+  size_t key_length = strlen(key);
 
   builder->string = realloc(builder->string, builder->position + 4 + key_length);
 
@@ -244,7 +280,7 @@ void pjsonb_enter_array(struct pjsonb *builder, const char *key) {
   builder->position++;
 
   memcpy(builder->string + builder->position, key, key_length);
-  builder->position += key_length;
+  builder->position += (int)key_length;
 
   memcpy(builder->string + builder->position, "\":[", 3);
   builder->position += 3;

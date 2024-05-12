@@ -98,9 +98,9 @@ int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_init_ssl(struct pcll_connection *connection) {
@@ -146,9 +146,9 @@ int pcll_init_ssl(struct pcll_connection *connection) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_init_only_ssl(struct pcll_connection *connection) {
@@ -172,9 +172,9 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_set_fd(struct pcll_connection *connection, int fd) {
@@ -198,9 +198,9 @@ int pcll_set_fd(struct pcll_connection *connection, int fd) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_set_safe_mode(struct pcll_connection *connection, char *hostname) {
@@ -234,9 +234,9 @@ int pcll_set_safe_mode(struct pcll_connection *connection, char *hostname) {
     if (connection->ssl == NULL) return PCLL_ERROR;
 
     return 0;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_connect(struct pcll_connection *connection) {
@@ -250,9 +250,9 @@ int pcll_connect(struct pcll_connection *connection) {
     if (ret != WOLFSSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_accept(struct pcll_connection *connection) {
@@ -276,9 +276,9 @@ int pcll_accept(struct pcll_connection *connection) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_get_error(struct pcll_connection *connection, int error) {
@@ -286,9 +286,9 @@ int pcll_get_error(struct pcll_connection *connection, int error) {
     return SSL_get_error(connection->ssl, error);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     return wolfSSL_get_error(connection->ssl, error);
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_send(struct pcll_connection *connection, char *data, int length) {
@@ -314,9 +314,9 @@ int pcll_send(struct pcll_connection *connection, char *data, int length) {
     }
 
     return PCLL_SUCCESS;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 int pcll_recv(struct pcll_connection *connection, char *data, int length) {
@@ -342,9 +342,9 @@ int pcll_recv(struct pcll_connection *connection, char *data, int length) {
     }
 
     return recv_length;
+  #else
+    return PCLL_ERROR;
   #endif
-
-  return PCLL_ERROR;
 }
 
 void pcll_free(struct pcll_connection *connection) {

@@ -76,7 +76,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
       return -1;
     }
 
-    ret = pcll_set_fd(&client->connection, client->socket);
+    ret = pcll_set_fd(&client->connection, (int)client->socket);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 
@@ -107,7 +107,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
   return CSOCKET_CLIENT_SUCCESS;
 }
 
-int csocket_client_send(struct csocket_client *client, char *data, size_t size) {
+int csocket_client_send(struct csocket_client *client, char *data, int size) {
   if (client->secure) {
     int ret = pcll_send(&client->connection, data, size);
     if (ret == PCLL_ERROR) {
@@ -126,7 +126,7 @@ int csocket_client_send(struct csocket_client *client, char *data, size_t size) 
   return CSOCKET_CLIENT_SUCCESS;
 }
 
-int csocket_client_recv(struct csocket_client *client, char *buffer, size_t size) {
+int csocket_client_recv(struct csocket_client *client, char *buffer, int size) {
   if (client->secure) {
     int recv_length = pcll_recv(&client->connection, buffer, size);
     if (recv_length == PCLL_ERROR) {

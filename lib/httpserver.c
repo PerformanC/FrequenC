@@ -45,9 +45,9 @@ void httpserver_start_server(struct httpserver *server) {
 }
 
 void httpserver_stop_server(struct httpserver *server) {
-  printf("[httpserver]: Stopping server with %zu sockets.\n", server->sockets_length);
+  printf("[httpserver]: Stopping server with %d sockets.\n", server->sockets_length);
 
-  for (size_t i = 0; i < server->sockets_capacity; i++) {
+  for (int i = 0; i < server->sockets_capacity; i++) {
     if (server->sockets[i].socket == -1) continue;
 
     cthreads_thread_cancel(server->sockets[i].thread);
@@ -60,7 +60,7 @@ void httpserver_stop_server(struct httpserver *server) {
 }
 
 void _httpserver_add_available_socket(struct httpserver *server, int socket_index) {
-  for (size_t i = 0; i < server->sockets_capacity; i++) {
+  for (int i = 0; i < server->sockets_capacity; i++) {
     if (server->available_sockets[i] != 0) continue;
 
     server->available_sockets[i] = socket_index + 1;
@@ -82,13 +82,13 @@ void httpserver_disconnect_client(struct httpserver *server, struct csocket_serv
 }
 
 int _httpserver_select_position(struct httpserver *server) {
-  for (size_t i = 0; i < server->sockets_capacity; i++) {
+  for (int i = 0; i < server->sockets_capacity; i++) {
     if (server->available_sockets[i] == 0) continue;
 
     int socket_index = server->available_sockets[i] - 1;
     server->available_sockets[i] = 0;
 
-    printf("[httpserver]: Selected socket index: %d/%zu.\n", socket_index, server->sockets_capacity);
+    printf("[httpserver]: Selected socket index: %d/%d.\n", socket_index, server->sockets_capacity);
 
     return socket_index;
   }
@@ -97,7 +97,7 @@ int _httpserver_select_position(struct httpserver *server) {
   server->sockets = realloc(server->sockets, server->sockets_capacity * sizeof(struct httpserver_client));
   server->available_sockets = realloc(server->available_sockets, server->sockets_capacity * sizeof(int));
 
-  for (size_t i = server->sockets_capacity / 2; i < server->sockets_capacity; i++) {
+  for (int i = server->sockets_capacity / 2; i < server->sockets_capacity; i++) {
     server->sockets[i].thread = (struct cthreads_thread) { 0 };
     server->sockets[i].thread_data = NULL;
     server->sockets[i].socket = -1;
@@ -109,7 +109,7 @@ int _httpserver_select_position(struct httpserver *server) {
 
   server->available_sockets[server->sockets_length] = 0;
 
-  printf("[httpserver]: Reallocated sockets array and selected socket index: %zu/%zu.\n", server->sockets_length, server->sockets_capacity);
+  printf("[httpserver]: Reallocated sockets array and selected socket index: %d/%d.\n", server->sockets_length, server->sockets_capacity);
 
   return server->sockets_length;
 }
@@ -192,7 +192,8 @@ void httpserver_handle_request(struct httpserver *server, void (*callback)(struc
     int socket_index = _httpserver_select_position(server);
     server->sockets_length++;
 
-    printf("[httpserver]: Connection accepted.\n - Socket: %d\n - Socket index: %d\n - IP: %s\n - Port: %d\n", socket, socket_index, csocket_server_client_get_ip(&client), csocket_server_client_get_port(&client));
+    char ip[16 + 1];
+    printf("[httpserver]: Connection accepted.\n - Socket: %d\n - Socket index: %d\n - IP: %s\n - Port: %d\n", socket, socket_index, csocket_server_client_get_ip(&client, ip), csocket_server_client_get_port(&client));
 
     struct httpserver_client http_client = {
       .thread = { 0 },
@@ -311,31 +312,31 @@ char *_httpserver_get_status_text(int status) {
   return "Unknown";
 }
 
-size_t _calculate_response_length(struct httpserver_response *response) {
-  size_t length = 0;
+int _calculate_response_length(struct httpserver_response *response) {
+  int length = 0;
 
   length += sizeof("HTTP/1.1 ");
   length += 3;
-  length += strlen(_httpserver_get_status_text(response->status));
+  length += (int)strlen(_httpserver_get_status_text(response->status));
   length += 2;
 
   for (int i = 0; i < response->headers_length; i++) {
-    length += strlen(response->headers[i].key);
-    length += strlen(response->headers[i].value);
+    length += (int)strlen(response->headers[i].key);
+    length += (int)strlen(response->headers[i].value);
     length += 4;
   }
 
   length += 2;
 
   if (response->body != NULL) {
-    length += response->body_length;
+    length += (int)response->body_length;
   }
 
   return length;
 }
 
 void httpserver_send_response(struct httpserver_response *response) {
-  size_t length = _calculate_response_length(response);
+  int length = _calculate_response_length(response);
   char *response_string = frequenc_safe_malloc(length);
   size_t response_position = 0;
 
@@ -358,7 +359,7 @@ void httpserver_send_response(struct httpserver_response *response) {
   tstr_append(response_string, "\r\n", &response_position, 0);
 
   if (response->body != NULL) {
-    tstr_append(response_string, response->body, &response_position, response->body_length);
+    tstr_append(response_string, response->body, &response_position, (int)response->body_length);
   }
 
   csocket_server_send(response->client, response_string, length);

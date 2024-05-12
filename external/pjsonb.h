@@ -33,6 +33,8 @@ void pjsonb_free(struct pjsonb *builder);
 
 void pjsonb_set_int(struct pjsonb *builder, const char *key, int value);
 
+void pjsonb_set_size_t(struct pjsonb *builder, const char *key, size_t value);
+
 void pjsonb_set_float(struct pjsonb *builder, const char *key, float value);
 
 void pjsonb_set_bool(struct pjsonb *builder, const char *key, int value);
