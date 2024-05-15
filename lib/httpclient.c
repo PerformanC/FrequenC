@@ -47,24 +47,36 @@ void _httpclient_build_request(struct httpclient_request_params *request, struct
   }
 
   if (request->body != NULL) {
-    current_length += snprintf(request_string + current_length, (length + 1) - current_length, "Content-Length: %zu\r\n\r\n%.*s", request->body->length, (int)request->body->length, request->body->string);
+    tstr_append(request_string, "Content-Length: ", &current_length, 16);
+
+    char content_length_str[16];
+    int content_length_length = snprintf(content_length_str, 16, "%zu", request->body->length);
+    tstr_append(request_string, content_length_str, &current_length, content_length_length);
+
+    tstr_append(request_string, "\r\n\r\n", &current_length, 4);
+    tstr_append(request_string, request->body->string, &current_length, request->body->length);
   } else {
-    current_length += snprintf(request_string + current_length, (length + 1) - current_length, "\r\n");
+    tstr_append(request_string, "\r\n", &current_length, 2);
   }
 
   response->string = request_string;
-  response->length = length;
+  response->length = length - 1;
 }
 
 int httpclient_request(struct httpclient_request_params *request, struct httpclient_response *http_response) {
   pcll_init_ssl_library();
 
-  csocket_client_init(&http_response->connection, request->secure, request->host, request->port);
+  int ret = csocket_client_init(&http_response->connection, request->secure, request->host, request->port);
+  if (ret == CSOCKET_CLIENT_ERROR) {
+    perror("[https-client]: Failed to initialize connection");
+
+    return -1;
+  }
 
   struct tstr_string http_request;
   _httpclient_build_request(request, &http_request);
 
-  int ret = csocket_client_send(&http_response->connection, http_request.string, (int)http_request.length);
+  ret = csocket_client_send(&http_response->connection, http_request.string, (int)http_request.length);
   if (ret == CSOCKET_CLIENT_ERROR) {
     csocket_client_close(&http_response->connection);
 

@@ -356,6 +356,8 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
   buffer[0] = 1 | 128;
 
   if (message_length >= 65536) {
+    buffer[1] = 127;
+
     buffer[2] = buffer[3] = 0;
     buffer[4] = (unsigned char)(message_length >> 56);
     buffer[5] = (unsigned char)(message_length >> 48);
@@ -366,6 +368,8 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
     buffer[10] = (unsigned char)(message_length >> 8);
     buffer[11] = (unsigned char)(message_length & 0xFF);
   } else if (message_length > 125) {
+    buffer[1] = 126;
+
     buffer[2] = (unsigned char)(message_length >> 8);
     buffer[3] = (unsigned char)(message_length & 0xFF);
   } else {

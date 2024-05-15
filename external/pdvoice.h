@@ -1,6 +1,11 @@
 #ifndef PDVOICE_H
 #define PDVOICE_H
 
+#ifdef _WIN32
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+#endif
+
 #include "cthreads.h"
 
 #include "httpclient.h"
@@ -15,6 +20,12 @@ struct pdvoice_udp_connection_info {
   int ssrc;
   char *ip;
   int port;
+
+  #ifdef _WIN32
+    SOCKET socket;
+  #else
+    int socket;
+  #endif
 };
 
 struct _pdvoice_udp_thread_data {

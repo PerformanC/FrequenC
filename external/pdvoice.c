@@ -395,6 +395,7 @@ void *_pdvoice_connect(void *data) {
   struct httpclient_request_params params = {
     .host = connection->ws_connection_info->endpoint,
     .port = 443,
+    .secure = true,
     .path = path,
     .method = "GET",
     .headers = (struct httpparser_header[4 + 1]) {

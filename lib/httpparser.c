@@ -116,20 +116,19 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
       int requested_length = (request_length + headers_end.end - 4) - chunk_size.end - 2;
 
-      if (requested_length != content_length) return -1;
-
       if (requested_length > http_request->chunk_length) requested_length = http_request->chunk_length;
 
-      http_request->body = frequenc_safe_malloc((http_request->chunk_length + 1) * sizeof(char));
-      frequenc_fast_copy(request + headers_end.end + 4, http_request->body, requested_length);
+      http_request->body_length = requested_length;
+      http_request->body = frequenc_safe_malloc(requested_length * sizeof(char));
+      frequenc_unsafe_fast_copy(body_and_length + chunk_size.end + 2, http_request->body, requested_length);
 
       /* TODO: Implement chunk handling */
       http_request->finished = http_request->body_length == (size_t)http_request->chunk_length;
     } else {
       if ((request_length - headers_end.end - 4) != content_length) return -1;
 
-      http_request->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
-      frequenc_fast_copy(request + headers_end.end + 4, http_request->body, content_length);
+      http_request->body = frequenc_safe_malloc(content_length * sizeof(char));
+      frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_request->body, content_length);
 
       http_request->body_length = content_length;
       http_request->finished = true;

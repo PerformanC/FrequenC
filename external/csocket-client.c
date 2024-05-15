@@ -31,27 +31,27 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
     if (WSAStartup(MAKEWORD(2,2), &client->wsa) != 0) {
       perror("[csocket-client]: Failed to initialize Winsock");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
 
     if ((client->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
       perror("[csocket-client]: Failed to create socket");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
   #else
-    if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
       perror("[csocket-client]: Failed to create socket");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
   #endif
 
   struct hostent *host = gethostbyname(hostname);
   if (!host) {
-    perror("[https-client]: Failed to resolve hostname");
+    perror("[csocket-client]: Failed to resolve hostname");
 
-    return -1;
+    return CSOCKET_CLIENT_ERROR;
   }
 
   struct sockaddr_in addr = {
@@ -63,44 +63,46 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
   if (connect(client->socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     perror("[csocket-client]: Failed to connect to server");
 
-    return -1;
+    return CSOCKET_CLIENT_ERROR;
   }
 
   if ((client->secure = secure)) {
+    pcll_init_ssl_library();
+
     int ret = pcll_init_ssl(&client->connection);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 
-      perror("[https-client]: Failed to initialize SSL");
+      perror("[csocket-client]: Failed to initialize SSL");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
 
     ret = pcll_set_fd(&client->connection, (int)client->socket);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 
-      perror("[https-client]: Failed to attach SSL to socket");
+      perror("[csocket-client]: Failed to attach SSL to socket");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
 
     ret = pcll_set_safe_mode(&client->connection, hostname);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 
-      perror("[https-client]: Failed to set safe mode");
+      perror("[csocket-client]: Failed to set safe mode");
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
 
     ret = pcll_connect(&client->connection);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 
-      printf("[https-client]: Failed to perform SSL handshake: %d\n", pcll_get_error(&client->connection, ret));
+      printf("[csocket-client]: Failed to perform SSL handshake: %d\n", pcll_get_error(&client->connection, ret));
 
-      return -1;
+      return CSOCKET_CLIENT_ERROR;
     }
   }
 
@@ -111,7 +113,7 @@ int csocket_client_send(struct csocket_client *client, char *data, int size) {
   if (client->secure) {
     int ret = pcll_send(&client->connection, data, size);
     if (ret == PCLL_ERROR) {
-      perror("[https-client]: Failed to send data");
+      perror("[csocket-client]: Failed to send data");
 
       return CSOCKET_CLIENT_ERROR;
     }
@@ -130,7 +132,7 @@ int csocket_client_recv(struct csocket_client *client, char *buffer, int size) {
   if (client->secure) {
     int recv_length = pcll_recv(&client->connection, buffer, size);
     if (recv_length == PCLL_ERROR) {
-      perror("[https-client]: Failed to receive data");
+      perror("[csocket-client]: Failed to receive data");
 
       return CSOCKET_CLIENT_ERROR;
     }

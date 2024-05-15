@@ -31,7 +31,7 @@ struct httpclient_response {
   struct csocket_client connection;
 };
 
-int httpclient_request(struct httpclient_request_params *request, struct httpclient_response *httpResponse);
+int httpclient_request(struct httpclient_request_params *request, struct httpclient_response *http_response);
 
 void httpclient_shutdown(struct httpclient_response *response);
 

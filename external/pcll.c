@@ -112,7 +112,11 @@ int pcll_init_ssl(struct pcll_connection *connection) {
       return PCLL_ERROR;
     }
 
-    int ret = SSL_CTX_set_min_proto_version(connection->ctx, TLS1_3_VERSION);
+    /*
+      This is set to TLS v1.2 as that's the maximum Discord accepts. ONLY put as v1.2 if
+        the targeted service doesn't accept it.
+    */
+    int ret = SSL_CTX_set_min_proto_version(connection->ctx, TLS1_2_VERSION);
     if (ret != SSL_SUCCESS) {
       SSL_CTX_free(connection->ctx);
 
