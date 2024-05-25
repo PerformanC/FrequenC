@@ -35,7 +35,9 @@ void tablec_resize(struct tablec_ht *tablec, size_t new_max_capacity) {
   }
 
   tablec_cleanup(tablec);
-  *tablec = newHashtable;
+  tablec->capacity = newHashtable.capacity;
+  tablec->length = newHashtable.length;
+  tablec->buckets = newHashtable.buckets;
 }
 
 void tablec_set(struct tablec_ht *tablec, char *key, void *value) {

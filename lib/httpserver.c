@@ -128,7 +128,12 @@ void *listen_messages(void *args) {
     printf("[httpserver]: Received message from socket.\n - Socket: %d\n - Socket index: %d\n - Payload size: %d\n", csocket_server_client_get_id(&client), socket_index, payload_size);
 
     if (server->sockets[socket_index].upgraded) {
-      struct frequenc_ws_frame ws_frame = frequenc_parse_ws_frame(payload);
+      struct frequenc_ws_frame ws_frame = { 0 };
+      if (frequenc_parse_ws_frame(&ws_frame, payload, payload_size) == -1) {
+        printf("[httpserver]: Failed to parse WebSocket frame.\n - Socket: %d\n", csocket_server_client_get_id(&client));
+
+        goto disconnect;
+      }
 
       if (connection_data->websocket_callback(&client, socket_index, &ws_frame)) goto disconnect;
 

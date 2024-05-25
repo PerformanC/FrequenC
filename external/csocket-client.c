@@ -48,7 +48,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
   #endif
 
   struct hostent *host = gethostbyname(hostname);
-  if (!host) {
+  if (host == NULL) {
     perror("[csocket-client]: Failed to resolve hostname");
 
     return CSOCKET_CLIENT_ERROR;
@@ -60,7 +60,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
     .sin_addr = *((struct in_addr *)host->h_addr_list[0])
   };
 
-  if (connect(client->socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+  if (connect(client->socket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
     perror("[csocket-client]: Failed to connect to server");
 
     return CSOCKET_CLIENT_ERROR;

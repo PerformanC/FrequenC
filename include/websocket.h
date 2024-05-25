@@ -33,7 +33,7 @@ struct frequenc_ws_cbs {
   void (*on_connect)(struct httpclient_response *client, void *user_data);
 };
 
-struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer);
+int frequenc_parse_ws_frame(struct frequenc_ws_frame *frame_header, char *buffer, int len);
 
 void frequenc_gen_accept_key(char *key, char *output);
 

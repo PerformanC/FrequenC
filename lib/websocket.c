@@ -13,12 +13,18 @@
 
 #include "websocket.h"
 
-struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
-  size_t start_index = 2;
+int frequenc_parse_ws_frame(struct frequenc_ws_frame *frame_header, char *buffer, int len) {
+  int start_index = 2;
+
+  if (len < 2) {
+    perror("[websocket]: Frame is too short");
+
+    return -1;
+  }
 
   uint8_t opcode = buffer[0] & 15;
-  int fin = (buffer[0] & 128) == 128;
-  int is_masked = (buffer[1] & 128) == 128;
+  bool fin = (buffer[0] & 128) == 128;
+  bool is_masked = (buffer[1] & 128) == 128;
   size_t payload_length = buffer[1] & 127;
 
   char mask[5];
@@ -26,6 +32,12 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
 
   if (payload_length == 126) {
     start_index += 2;
+
+    if (len < start_index) {
+      perror("[websocket]: Frame is too short");
+
+      return -1;
+    }
 
     /* TODO: how portable is __bswap_16? */
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -37,6 +49,12 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
     #endif
   } else if (payload_length == 127) {
     start_index += 8;
+
+    if (len < start_index) {
+      perror("[websocket]: Frame is too short");
+
+      return -1;
+    }
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       for (size_t i = 0; i < 8; i++) {
@@ -52,18 +70,23 @@ struct frequenc_ws_frame frequenc_parse_ws_frame(char *buffer) {
   if (is_masked) {
     start_index += 4;
 
+    if ((size_t)len < start_index + payload_length) {
+      perror("[websocket]: Frame is too short");
+
+      return -1;
+    }
+
     for (size_t i = 0; i < payload_length; ++i) {
       buffer[start_index + i] ^= mask[i % 4];
     }
   }
 
-  struct frequenc_ws_frame frame_header;
-  frame_header.opcode = opcode;
-  frame_header.fin = fin;
-  frame_header.buffer = &buffer[start_index];
-  frame_header.payload_length = payload_length;
+  frame_header->opcode = opcode;
+  frame_header->fin = fin;
+  frame_header->buffer = &buffer[start_index];
+  frame_header->payload_length = payload_length;
 
-  return frame_header;
+  return 0;
 }
 
 void frequenc_gen_accept_key(char *key, char *output) {
@@ -241,7 +264,8 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
       goto exit;
     }
 
-    struct frequenc_ws_frame header = frequenc_parse_ws_frame(packet);
+    struct frequenc_ws_frame header = { 0 };
+    frequenc_parse_ws_frame(&header, packet, len);
 
     switch (header.opcode) {
       case 0: {

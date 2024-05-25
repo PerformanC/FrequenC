@@ -11,8 +11,10 @@
 
 #include "pjsonb.h"
 
+#include "utils.h"
+
 void pjsonb_init(struct pjsonb *builder, enum pjsonb_type type) {
-  builder->string = malloc(1);
+  builder->string = frequenc_safe_malloc(1);
   builder->string[0] = type == PJSONB_ARRAY ? '[' : '{';
   builder->position = 1;
   builder->key_state = PJSONB_NONE;
