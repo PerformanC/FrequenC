@@ -335,7 +335,7 @@ struct tstr_string frequenc_youtube_search(char *query, int type) {
           .length = identifier->v.len,
           .allocated = true
         },
-        .is_stream = !!length_int,
+        .is_stream = !length_int,
         .uri = (struct tstr_string) {
           .string = uri_str,
           .length = uri_len,
