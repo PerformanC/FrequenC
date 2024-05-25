@@ -71,8 +71,8 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
 
   int buffer_length = _read_int(&buf) & ~(1 << 30);
 
-  if ((size_t)buffer_length != output_length - 4 - 1) {
-    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %zu\n", buffer_length, output_length - 4 - 1);
+  if ((size_t)buffer_length != output_length - 4) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %zu\n", buffer_length, output_length - 4);
 
     frequenc_unsafe_free(output);
 
@@ -109,8 +109,8 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
   }
   _read_utf(&buf, &result->source_name);
 
-  if ((size_t)buf.position != output_length - 1) {
-    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %zu\n", buf.position, output_length - 1);
+  if ((size_t)buf.position != output_length) {
+    printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match the end of the sequence of reads.\n - Expected: %d\n - Actual: %zu\n", buf.position, output_length);
 
     frequenc_unsafe_free(output);
 
