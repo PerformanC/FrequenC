@@ -28,7 +28,7 @@ struct csocket_client {
   bool secure;
 };
 
-int csocket_client_init(struct csocket_client *client, bool secure, char *hostname, int port);
+int csocket_client_init(struct csocket_client *client, bool secure, char *hostname, unsigned short port);
 
 int csocket_client_send(struct csocket_client *client, char *data, int size);
 

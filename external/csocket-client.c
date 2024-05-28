@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #ifdef _WIN32
   #include <winsock2.h>
   #include <ws2tcpip.h>
@@ -26,7 +28,7 @@ void _csocket_client_close(struct csocket_client *client) {
   }
 }
 
-int csocket_client_init(struct csocket_client *client, bool secure, char *hostname, int port) {
+int csocket_client_init(struct csocket_client *client, bool secure, char *hostname, unsigned short port) {
   #ifdef _WIN32
     if (WSAStartup(MAKEWORD(2,2), &client->wsa) != 0) {
       perror("[csocket-client]: Failed to initialize Winsock");
@@ -34,7 +36,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
       return CSOCKET_CLIENT_ERROR;
     }
 
-    if ((client->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
+    if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
       perror("[csocket-client]: Failed to create socket");
 
       return CSOCKET_CLIENT_ERROR;
@@ -45,30 +47,28 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
 
       return CSOCKET_CLIENT_ERROR;
     }
+
+    struct hostent *host = gethostbyname(hostname);
+    if (host == NULL) {
+      perror("[csocket-client]: Failed to resolve hostname");
+
+      return CSOCKET_CLIENT_ERROR;
+    }
+
+    struct sockaddr_in addr = {
+      .sin_family = AF_INET,
+      .sin_port = htons(port),
+      .sin_addr = *((struct in_addr *)host->h_addr_list[0])
+    };
+
+    if (connect(client->socket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+      perror("[csocket-client]: Failed to connect to server");
+
+      return CSOCKET_CLIENT_ERROR;
+    }
   #endif
 
-  struct hostent *host = gethostbyname(hostname);
-  if (host == NULL) {
-    perror("[csocket-client]: Failed to resolve hostname");
-
-    return CSOCKET_CLIENT_ERROR;
-  }
-
-  struct sockaddr_in addr = {
-    .sin_family = AF_INET,
-    .sin_port = htons(port),
-    .sin_addr = *((struct in_addr *)host->h_addr_list[0])
-  };
-
-  if (connect(client->socket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-    perror("[csocket-client]: Failed to connect to server");
-
-    return CSOCKET_CLIENT_ERROR;
-  }
-
   if ((client->secure = secure)) {
-    pcll_init_ssl_library();
-
     int ret = pcll_init_ssl(&client->connection);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
@@ -78,16 +78,7 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
       return CSOCKET_CLIENT_ERROR;
     }
 
-    ret = pcll_set_fd(&client->connection, (int)client->socket);
-    if (ret != PCLL_SUCCESS) {
-      _csocket_client_close(client);
-
-      perror("[csocket-client]: Failed to attach SSL to socket");
-
-      return CSOCKET_CLIENT_ERROR;
-    }
-
-    ret = pcll_set_safe_mode(&client->connection, hostname);
+    ret = pcll_set_safe_mode(&client->connection, hostname, port, client->socket);
     if (ret != PCLL_SUCCESS) {
       _csocket_client_close(client);
 

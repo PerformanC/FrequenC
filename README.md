@@ -15,10 +15,10 @@ The standalone audio-sending node written in C.
 
 - [`OpenSSL`](https://www.openssl.org/) or [`WolfSSL`](https://www.wolfssl.com/)
 
-## Installation
+> [!NOTE]
+> For Windows, it doesn't rely on external dependencies, as it uses [Windows SChannel](https://learn.microsoft.com/en-us/windows/win32/com/schannel) for SSL/TLS.
 
-> [!IMPORTANT]
-> For Windows, you can simply click build the project using Visual Studio. Make sure to install the dependencies first.
+## Installation
 
 ### 1. Clone the repository
 
@@ -31,6 +31,9 @@ $ git clone https://github.com/PerformanC/FrequenC
 ```shell
 $ make -j4
 ```
+
+> [!IMPORTANT]
+> For Windows, you will only need to hit build on Visual Studio. Although use of Cygwin or MinGW is available, it is not recommended.
 
 > [!NOTE]
 > The `-j4` flag is used to compile the project using 4 threads. You can change the number to the number of threads you want to use.

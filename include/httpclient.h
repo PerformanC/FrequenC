@@ -8,7 +8,7 @@
 
 struct httpclient_request_params {
   char *host;
-  int port;
+  unsigned short port;
   bool secure;
   char *method;
   char *path;

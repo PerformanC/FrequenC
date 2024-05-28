@@ -1264,6 +1264,9 @@ int main(void) {
   int APIENTRY WinMain(HINSTANCE h_instance, HINSTANCE h_prev_instance, LPSTR lp_cmd_line, int n_cmd_show) {
     (void) h_instance; (void) h_prev_instance; (void) lp_cmd_line; (void) n_cmd_show;
 
+    /* Set stdout to line buffered */
+    setbuf(stdout, NULL);
+
     return main();
   }
 #endif

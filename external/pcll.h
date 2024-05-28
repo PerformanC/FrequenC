@@ -1,8 +1,9 @@
 #ifndef PCLL_H
 #define PCLL_H
 
-#define PCLL_OPENSSL 1
-#define PCLL_WOLFSSL 2
+#define PCLL_OPENSSL  1
+#define PCLL_WOLFSSL  2
+#define PCLL_SCHANNEL 3
 
 #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
   #include <openssl/err.h>
@@ -13,7 +14,19 @@
   #pragma message "Using wolfSSL is experimental and may not work as expected. Security is NOT guaranteed."
 
   #include <wolfssl/ssl.h>
+#elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
+  #pragma message "Using SChannel is experimental and may not work as expected. Security is NOT guaranteed. Support for encrypted server is not supported yet."
+
+  #define WIN32_LEAN_AND_MEAN
+  #include <winsock2.h>
+  #include <windows.h>
+  #define SECURITY_WIN32
+  #include <security.h>
+  #include <schannel.h>
+  #include <shlwapi.h>
 #endif
+
+#include "tcplimits.h"
 
 struct pcll_connection {
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
@@ -22,6 +35,20 @@ struct pcll_connection {
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     WOLFSSL *ssl;
     WOLFSSL_CTX *ctx;
+  #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
+    WSADATA wsa_data;
+    CredHandle handle;
+    SecPkgContext_StreamSizes sizes;
+    CtxtHandle context;
+    SOCKET socket;
+    CtxtHandle *ssl;
+    CredHandle *ctx;
+    int received;
+    int available;
+    int used;
+    char *decrypted;
+    char incoming[TCPLIMITS_PACKET_SIZE];
+    char *hostname;
   #endif
 };
 
@@ -32,6 +59,9 @@ struct pcll_server {
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     WOLFSSL *ssl;
     WOLFSSL_CTX *ctx;
+  #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
+    CtxtHandle *ssl;
+    CredHandle *ctx;
   #endif
 };
 
@@ -46,9 +76,11 @@ int pcll_init_only_ssl(struct pcll_connection *connection);
 
 int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key);
 
-int pcll_set_fd(struct pcll_connection *connection, int fd);
-
-int pcll_set_safe_mode(struct pcll_connection *connection, char *hostname);
+#ifdef _WIN32
+  int pcll_set_safe_mode(struct pcll_connection* connection, char *hostname, unsigned short port, SOCKET fd);
+#else
+  int pcll_set_safe_mode(struct pcll_connection *connection, char *hostname, unsigned short port, int fd);
+#endif
 
 int pcll_connect(struct pcll_connection *connection);
 

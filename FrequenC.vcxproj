@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="packages\openssl-native.3.0.13\build\native\openssl-native.props" Condition="Exists('packages\openssl-native.3.0.13\build\native\openssl-native.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -78,50 +77,56 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <WarningLevel>EnableAllWarnings</WarningLevel>
-      <AdditionalIncludeDirectories>C:/Program Files (x86)/OpenSSL-Win32/include;external;include;sources</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=3;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:/Program Files (x86)/OpenSSL-Win32/lib/VC/x86/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;secur32.lib;shlwapi.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>C:/Program Files/OpenSSL-Win64/include;external;include;sources</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=3;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <OmitFramePointers>false</OmitFramePointers>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:/Program Files/OpenSSL-Win64/lib/VC/x64/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;secur32.lib;shlwapi.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>EnableAllWarnings</WarningLevel>
-      <AdditionalIncludeDirectories>C:/Program Files (x86)/OpenSSL-Win32/include;external;include;sources</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=3;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:/Program Files (x86)/OpenSSL-Win32/lib/VC/x86/MTd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;secur32.lib;shlwapi.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>packages\openssl-native.3.0.13\include;external;include;sources</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=1;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>external;include;sources</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PCLL_SSL_LIBRARY=3;GITHUB_BRANCH="unknown";GITHUB_COMMIT_SHA="unknown";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -138,8 +143,8 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;libssl.lib;libcrypto.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>packages\openssl-native.3.0.13\lib\win-x64\native;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;Advapi32.lib;secur32.lib;shlwapi.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -190,18 +195,6 @@
     <ClInclude Include="include\websocket.h" />
     <ClInclude Include="sources\youtube.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\openssl-native.3.0.13\build\native\openssl-native.targets" Condition="Exists('packages\openssl-native.3.0.13\build\native\openssl-native.targets')" />
-  </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('packages\openssl-native.3.0.13\build\native\openssl-native.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\openssl-native.3.0.13\build\native\openssl-native.props'))" />
-    <Error Condition="!Exists('packages\openssl-native.3.0.13\build\native\openssl-native.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\openssl-native.3.0.13\build\native\openssl-native.targets'))" />
-  </Target>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>
