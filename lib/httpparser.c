@@ -17,7 +17,7 @@ void httpparser_init_request(struct httpparser_request *http_request, struct htt
   http_request->body = NULL;
 }
 
-int _httpparser_check_method(const char *method) {
+static int _httpparser_check_method(const char *method) {
   char *http_methods[] = { "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH" };
 
   for (size_t i = 0; i < sizeof(http_methods) / sizeof(*http_methods); i++) {
@@ -27,7 +27,7 @@ int _httpparser_check_method(const char *method) {
   return -1;
 }
 
-void _httpparser_to_lower_case(char *str) {
+static void _httpparser_to_lower_case(char *str) {
   for (int i = 0; str[i]; i++) {
     str[i] = tolower(str[i]);
   }
@@ -44,7 +44,7 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   if (method_token.end == 0) return -1;
 
-  frequenc_fast_copy((char *)request, http_request->method, method_token.end);
+  frequenc_fast_copy(request, http_request->method, (size_t)method_token.end);
 
   if (_httpparser_check_method(http_request->method) == -1) return -1;
 
@@ -53,15 +53,15 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
 
   if (path_token.end == 0) return -1;
 
-  http_request->path = frequenc_safe_malloc((path_token.end - path_token.start + 1) * sizeof(char));
-  frequenc_fast_copy((char *)request + path_token.start, http_request->path, path_token.end - path_token.start);
+  http_request->path = frequenc_safe_malloc((size_t)(path_token.end - path_token.start + 1) * sizeof(char));
+  frequenc_fast_copy(request + path_token.start, http_request->path, (size_t)(path_token.end - path_token.start));
 
   struct tstr_string_token version_token;
-  tstr_find_between(&version_token, request, NULL, path_token.end + 1 + sizeof("HTTP/") - 1, "\r\n", 0);
+  tstr_find_between(&version_token, request, NULL, path_token.end + 1 + (int)sizeof("HTTP/") - 1, "\r\n", 0);
 
   if (version_token.end == 0) return -1;
 
-  frequenc_fast_copy((char *)request + version_token.start, http_request->version, version_token.end - version_token.start);
+  frequenc_fast_copy(request + version_token.start, http_request->version, (size_t)(version_token.end - version_token.start));
 
   if (strcmp(http_request->version, "1.1")) return -1;
 
@@ -83,9 +83,9 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
     int key_length = header_name.end - header_name.start;
     int value_length = header.end - header_name.end - 2;
 
-    frequenc_fast_copy((char *)request + header_name.start, http_request->headers[http_request->headers_length].key, key_length);
+    frequenc_fast_copy(request + header_name.start, http_request->headers[http_request->headers_length].key, (size_t)key_length);
     _httpparser_to_lower_case(http_request->headers[http_request->headers_length].key);
-    frequenc_fast_copy((char *)request + header_name.end + 2, http_request->headers[http_request->headers_length].value, value_length);
+    frequenc_fast_copy(request + header_name.end + 2, http_request->headers[http_request->headers_length].value, (size_t)value_length);
 
     if (strcmp(http_request->headers[http_request->headers_length].key, "content-length") == 0)
       content_length = atoi(request + header.start + sizeof("content-length: ") - 1);
@@ -110,27 +110,27 @@ int httpparser_parse_request(struct httpparser_request *http_request, const char
       if (chunk_size.end == 0) return -1;
 
       char chunk_size_str[5];
-      frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
+      frequenc_fast_copy(body_and_length, chunk_size_str, (size_t)chunk_size.end);
 
-      http_request->chunk_length = strtol(chunk_size_str, NULL, 16);
+      http_request->chunk_length = (int)strtol(chunk_size_str, NULL, 16);
 
       int requested_length = (request_length + headers_end.end - 4) - chunk_size.end - 2;
 
       if (requested_length > http_request->chunk_length) requested_length = http_request->chunk_length;
 
-      http_request->body_length = requested_length;
-      http_request->body = frequenc_safe_malloc(requested_length * sizeof(char));
-      frequenc_unsafe_fast_copy(body_and_length + chunk_size.end + 2, http_request->body, requested_length);
+      http_request->body_length = (size_t)requested_length;
+      http_request->body = frequenc_safe_malloc((size_t)requested_length * sizeof(char));
+      frequenc_unsafe_fast_copy(body_and_length + chunk_size.end + 2, http_request->body, (size_t)requested_length);
 
       /* TODO: Implement chunk handling */
       http_request->finished = http_request->body_length == (size_t)http_request->chunk_length;
     } else {
       if ((request_length - headers_end.end - 4) != content_length) return -1;
 
-      http_request->body = frequenc_safe_malloc(content_length * sizeof(char));
-      frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_request->body, content_length);
+      http_request->body = frequenc_safe_malloc((size_t)content_length * sizeof(char));
+      frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_request->body, (size_t)content_length);
 
-      http_request->body_length = content_length;
+      http_request->body_length = (size_t)content_length;
       http_request->finished = true;
     }
   } else {
@@ -153,7 +153,7 @@ void httpparser_init_response(struct httpparser_response *http_response, struct 
   http_response->body = NULL;
 }
 
-struct httpparser_header *_httpparser_get_response_header(struct httpparser_response *http_request, const char *key) {
+static struct httpparser_header *_httpparser_get_response_header(struct httpparser_response *http_request, const char *key) {
   int i = 0;
 
   while (i < http_request->headers_length) {
@@ -215,9 +215,9 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
     int key_length = header_name.end - header_name.start;
     int value_length = header.end - header_name.end - 2;
 
-    frequenc_fast_copy(request + header_name.start, http_response->headers[i].key, key_length);
+    frequenc_fast_copy(request + header_name.start, http_response->headers[i].key, (size_t)key_length);
     _httpparser_to_lower_case(http_response->headers[i].key);
-    frequenc_fast_copy(request + header_name.end + 2, http_response->headers[i].value, value_length);
+    frequenc_fast_copy(request + header_name.end + 2, http_response->headers[i].value, (size_t)value_length);
 
     if (strcmp(http_response->headers[i].key, "content-length") == 0)
       content_length = atoi(request + header.start + sizeof("content-length: ") - 1);
@@ -242,15 +242,15 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
     if (chunk_size.end == 0) return -1;
 
     char chunk_size_str[5];
-    frequenc_fast_copy((char *)body_and_length, chunk_size_str, chunk_size.end);
+    frequenc_fast_copy(body_and_length, chunk_size_str, (size_t)chunk_size.end);
 
-    http_response->chunk_length = strtol(chunk_size_str, NULL, 16);
-    http_response->body = frequenc_safe_malloc(http_response->chunk_length * sizeof(char));
-    http_response->body_length = request_length - (headers_end.end + 4) - (chunk_size.end + 2);
+    http_response->chunk_length = (int)strtol(chunk_size_str, NULL, 16);
+    http_response->body = frequenc_safe_malloc((size_t)http_response->chunk_length * sizeof(char));
+    http_response->body_length = (size_t)(request_length - (headers_end.end + 4) - (chunk_size.end + 2));
     frequenc_unsafe_fast_copy(body_and_length + chunk_size.end + 2, http_response->body, http_response->body_length);
     http_response->finished = 0;
   } else {
-    http_response->body_length = request_length - (headers_end.end + 4);
+    http_response->body_length = (size_t)(request_length - (headers_end.end + 4));
 
     if (http_response->body_length != (size_t)content_length) {
       frequenc_unsafe_free(http_response->body);
@@ -258,10 +258,10 @@ int httpparser_parse_response(struct httpparser_response *http_response, const c
       return -1;
     }
 
-    http_response->body = frequenc_safe_malloc((content_length + 1) * sizeof(char));
-    frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_response->body, request_length - headers_end.end - 4);
+    http_response->body = frequenc_safe_malloc((size_t)content_length * sizeof(char));
+    frequenc_unsafe_fast_copy(request + headers_end.end + 4, http_response->body, (size_t)(request_length - headers_end.end - 4));
 
-    http_response->body_length = content_length;
+    http_response->body_length = (size_t)content_length;
     http_response->finished = 1;
   }
 

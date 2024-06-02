@@ -112,7 +112,7 @@ int csocket_server_accept(struct csocket_server server, struct csocket_server_cl
   return 0;
 }
 
-int csocket_server_send(struct csocket_server_client *client, char *data, int length) {
+int csocket_server_send(struct csocket_server_client *client, char *data, size_t length) {
   #ifdef CSOCKET_SECURE
     if (pcll_send(client->connection, data, length) < 0) {
       perror("[csocket-server]: Failed to send data");
@@ -144,7 +144,7 @@ int csocket_close_client(struct csocket_server_client *client) {
   return 0;
 }
 
-int csocket_server_recv(struct csocket_server_client *client, char *buffer, int length) {
+long csocket_server_recv(struct csocket_server_client *client, char *buffer, size_t length) {
   #ifdef CSOCKET_SECURE
     int bytes = pcll_recv(client->connection, buffer, length);
     if (bytes <= 0) {
@@ -155,7 +155,7 @@ int csocket_server_recv(struct csocket_server_client *client, char *buffer, int 
 
     return bytes;
   #else
-    int bytes = recv(client->socket, buffer, length, 0);
+    long bytes = recv(client->socket, buffer, length, 0);
     if (bytes < 0) {
       perror("[csocket-server]: Failed to receive data");
 

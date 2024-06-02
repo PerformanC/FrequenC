@@ -171,7 +171,7 @@ char *frequenc_generate_session_id(char *result) {
 
   int i = 0;
   while (i < 16) {
-    result[i] = characters[rand() % (sizeof(characters) - 1)];
+    result[i] = characters[rand() % ((int)sizeof(characters) - 1)];
     i++;
   }
 
@@ -205,14 +205,14 @@ int frequenc_parse_client_info(char *client_info, struct frequenc_client_info *r
 
   if (bot_name_result.start == 0 || bot_name_result.end == 0) return -1;
 
-  result->name = frequenc_safe_malloc(name_result.end - name_result.start + 1);
-  frequenc_fast_copy(client_info + name_result.start, result->name, name_result.end - name_result.start);
+  result->name = frequenc_safe_malloc((size_t)(name_result.end - name_result.start));
+  frequenc_fast_copy(client_info + name_result.start, result->name, (size_t)(name_result.end - name_result.start));
 
-  result->version = frequenc_safe_malloc(version_result.end - version_result.start + 1);
-  frequenc_fast_copy(client_info + version_result.start, result->version, version_result.end - version_result.start);
+  result->version = frequenc_safe_malloc((size_t)(version_result.end - version_result.start));
+  frequenc_fast_copy(client_info + version_result.start, result->version, (size_t)(version_result.end - version_result.start));
 
-  result->bot_name = frequenc_safe_malloc(bot_name_result.end - bot_name_result.start + 1);
-  frequenc_fast_copy(client_info + bot_name_result.start, result->bot_name, bot_name_result.end - bot_name_result.start);
+  result->bot_name = frequenc_safe_malloc((size_t)(bot_name_result.end - bot_name_result.start));
+  frequenc_fast_copy(client_info + bot_name_result.start, result->bot_name, (size_t)(bot_name_result.end - bot_name_result.start));
 
   return 0;
 }

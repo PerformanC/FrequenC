@@ -17,9 +17,7 @@
 #include "httpserver.h"
 #include "websocket.h"
 #include "types.h"
-/* Sources */
-#include "youtube.h"
-/* Sources end */
+#include "sources.h"
 #include "track.h"
 #include "utils.h"
 
@@ -56,8 +54,8 @@ struct client_authorization {
   bool disconnected;
 };
 
-struct tablec_ht clients;
-struct httpserver server;
+static struct tablec_ht clients;
+static struct httpserver server;
 
 void callback(struct csocket_server_client *client, int socket_index, struct httpparser_request *request) {
   struct httpparser_header *authorization = httpparser_get_header(request, "authorization");
@@ -191,7 +189,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       struct frequenc_ws_message ws_response;
       ws_response.opcode = 1;
       ws_response.fin = true;
-      ws_response.payload_length = payload_length;
+      ws_response.payload_length = (size_t)payload_length;
       ws_response.buffer = payload;
       ws_response.client = client;
 
@@ -242,7 +240,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     struct frequenc_ws_message ws_response;
     ws_response.opcode = 1;
     ws_response.fin = true;
-    ws_response.payload_length = payload_length;
+    ws_response.payload_length = (size_t)payload_length;
     ws_response.buffer = payload;
     ws_response.client = client;
 
@@ -328,14 +326,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
-
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
     unsigned num_tokens = 0;
 
     jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
+    int r = jsmn_parse_auto(&parser, request->body, request->body_length, &tokens, &num_tokens);
     if (r <= 0) {
       frequenc_unsafe_free(tokens);
 
@@ -500,14 +496,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       goto bad_request;
     }
 
-    struct httpparser_header *content_length = httpparser_get_header(request, "content-length");
-
     jsmn_parser parser;
     jsmntok_t *tokens = NULL;
     unsigned num_tokens = 0;
 
     jsmn_init(&parser);
-    int r = jsmn_parse_auto(&parser, request->body, atoi(content_length->value), &tokens, &num_tokens);
+    int r = jsmn_parse_auto(&parser, request->body, request->body_length, &tokens, &num_tokens);
     if (r <= 0) {
       frequenc_unsafe_free(tokens);
 
@@ -677,10 +671,12 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
     printf("[main]: Loading tracks request: %s\n", identifier->value);
 
-    struct tstr_string result = { 0 };
+    struct tstr_string result;
+    if (frequenc_search(&result, identifier->value) == -1) {
+      printf("[main]: Failed to load tracks request: %s\n", identifier->value);
 
-    if (strncmp(identifier->value, "ytsearch:", sizeof("ytsearch:") - 1) == 0)
-      result = frequenc_youtube_search(identifier->value + (sizeof("ytsearch:") - 1), 0);
+      goto bad_request;
+    }
 
     printf("[main]: Done loading tracks request: %s\n", identifier->value);
 
@@ -721,7 +717,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     char session_id_str[16 + 1];
-    frequenc_fast_copy(request->path + session_id.start, session_id_str, session_id.end - session_id.start);
+    frequenc_fast_copy(request->path + session_id.start, session_id_str, (size_t)(session_id.end - session_id.start));
 
     struct tablec_bucket *session_bucket = tablec_get(&clients, session_id_str);
 
@@ -755,7 +751,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     }
 
     char guild_id_str[19 + 1];
-    frequenc_fast_copy(request->path + guild_id.start, guild_id_str, guild_id.end - guild_id.start);
+    frequenc_fast_copy(request->path + guild_id.start, guild_id_str, (size_t)(guild_id.end - guild_id.start));
 
     struct tablec_bucket *guild_bucket = tablec_get(&session->guilds, guild_id_str);
     struct client_guild_information *guild_info = NULL;
@@ -904,7 +900,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         printf("[main]: Player not found, creating new player.\n");
 
         guild_info = frequenc_safe_malloc(sizeof(struct client_guild_information));
-        guild_info->guild_id = strtol(guild_id_str, NULL, 10);
+        guild_info->guild_id = (size_t)strtol(guild_id_str, NULL, 10);
 
         char *guild_id_str_alloced = frequenc_strdup(guild_id_str, 0);
 
@@ -1035,6 +1031,58 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
 
         return;
       }
+
+      jsmnf_pair *track = jsmnf_find(pairs, request->body, "track", sizeof("track") - 1);
+
+      if (track != NULL) {
+        struct frequenc_track_info decoded_track = { 0 };
+        struct tstr_string encoded_track_str = {
+          .string = request->body + track->v.pos,
+          .length = track->v.len,
+          .allocated = false
+        };
+
+        if (frequenc_decode_track(&decoded_track, &encoded_track_str) == -1) {
+          cthreads_mutex_unlock(&session->mutex);
+
+          frequenc_unsafe_free(tokens);
+          frequenc_unsafe_free(pairs);
+
+          goto bad_request;
+        }
+
+        struct frequenc_audio_stream audio_stream = { 0 };
+        if (frequenc_get_stream(&audio_stream, decoded_track) == -1) {
+          cthreads_mutex_unlock(&session->mutex);
+
+          frequenc_unsafe_free(tokens);
+          frequenc_unsafe_free(pairs);
+
+          goto bad_request;
+        }
+
+        /* TODO: Play system is still not done */
+        printf("[main]: Track URL: %.*s\n", (int)audio_stream.url.length, audio_stream.url.string);
+
+        cthreads_mutex_unlock(&session->mutex);
+
+        struct httpserver_response response = {
+          .client = client,
+          .status = 204,
+          .headers = (struct httpserver_header *) &(struct httpserver_header []) {
+            {
+              .key = "Content-Length",
+              .value = "0"
+            }
+          },
+          .headers_length = 1
+        };
+
+        httpserver_send_response(&response);
+
+        return;
+      }
+
 
       frequenc_unsafe_free(tokens);
       frequenc_unsafe_free(pairs);

@@ -5,6 +5,7 @@
     - Remove the need for malloc.
     - Added "len" parameter to b64_decode.
     - Removed NULL termination from b64_encode.
+    - Made b64_isvalidchar, b64invs and b64chars static.
 
   Modified by: @ThePedroo
 */
@@ -17,7 +18,7 @@
 
 #include "base64.h"
 
-const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 size_t b64_encoded_size(size_t inlen) {
 	size_t ret;
@@ -62,7 +63,7 @@ char *b64_encode(const unsigned char *in, char *out, size_t len) {
 	return out;
 }
 
-int b64invs[] = { 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
+static int b64invs[] = { 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
 	59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5,
 	6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
 	21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
@@ -87,7 +88,7 @@ size_t b64_decoded_size(const char *in, size_t len) {
 	return ret;
 }
 
-int b64_isvalidchar(char c) {
+static int b64_isvalidchar(char c) {
 	if ((c >= '0' && c <= '9') ||
       (c >= 'A' && c <= 'Z') ||
       (c >= 'a' && c <= 'z') ||

@@ -505,6 +505,7 @@ This endpoint allows clients to update information about the player, allowing Fr
   - `endpoint` - String: The Discord voice server endpoint.
   - `session_id` - String: The Discord voice server session ID.
   - `token` - String: The Discord voice server token.
+- `track` - String: The encoded track of the current playing track.
 
 ##### Example
 
@@ -514,7 +515,8 @@ This endpoint allows clients to update information about the player, allowing Fr
     "endpoint": "brazil1001.discord.media",
     "session_id": "Xe32",
     "token": "Xe16"
-  }
+  },
+  "track": "XXXXXXXXXX..."
 }
 ```
 
@@ -528,6 +530,7 @@ This endpoint allows clients to update information about the player, allowing Fr
   - `endpoint` - String: The Discord voice server endpoint.
   - `session_id` - String: The Discord voice server session ID.
   - `token` - String: The Discord voice server token.
+- `track` - String: The encoded track of the current playing track.
 
 > [!WARNING]
 > The `endpoint`, `session_id` and `token` are Discord voice server specific, and should not be shared with anyone. However they're only temporarily confidential.
@@ -540,7 +543,8 @@ This endpoint allows clients to update information about the player, allowing Fr
     "endpoint": "brazil1001.discord.media",
     "session_id": "Xe32",
     "token": "Xe16"
-  }
+  },
+  "track: "XXXXXXXXXX..."
 }
 ```
 

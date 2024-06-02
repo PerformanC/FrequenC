@@ -4,13 +4,18 @@
 #include <stdint.h>
 
 #include "libtstr.h"
+#include "pjsonb.h"
+#define JSMN_HEADER
+#define JSMN_STRICT /* Set strict mode for jsmn (JSON tokenizer) */
+#include "jsmn.h"
+#include "jsmn-find.h"
 
 #include "types.h"
 
 struct frequenc_track_info {
   struct tstr_string title;
   struct tstr_string author;
-  uint64_t length;
+  size_t length;
   struct tstr_string identifier;
   bool is_stream;
   struct tstr_string uri;
@@ -29,7 +34,7 @@ void frequenc_track_info_to_json(struct frequenc_track_info *track_info, struct 
 
 void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info, struct pjsonb *track_json);
 
-int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize);
+int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], unsigned int path_len, unsigned int path_size);
 
 void frequenc_free_track_info(struct frequenc_track_info *track_info);
 

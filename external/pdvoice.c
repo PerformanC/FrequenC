@@ -38,7 +38,7 @@ void pdvoice_update_server(struct pdvoice *connection, char *endpoint, char *tok
   connection->ws_connection_info->token = token;
 }
 
-void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
+static void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
   struct pdvoice *connection = user_data;
 
   struct pjsonb jsonb;
@@ -59,12 +59,12 @@ void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
 
   pjsonb_end(&jsonb);
 
-  frequenc_send_text_ws_client(client, jsonb.string, jsonb.position);
+  frequenc_send_text_ws_client(client, jsonb.string, (size_t)jsonb.position);
 
   pjsonb_free(&jsonb);
 }
 
-void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
+static void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
   (void)client;
 
   struct pdvoice *connection = user_data;
@@ -74,7 +74,7 @@ void _pdvoice_on_close(struct httpclient_response *client, struct frequenc_ws_fr
   pdvoice_free(connection);
 }
 
-void *_pdvoice_udp(void *data) {
+static void *_pdvoice_udp(void *data) {
   struct _pdvoice_udp_thread_data *thread_data = data;
 
   #ifdef _WIN32
@@ -166,9 +166,9 @@ void *_pdvoice_udp(void *data) {
   cthreads_mutex_unlock(thread_data->connection->mutex);
 
   #ifdef _WIN32
-    int sent = sendto(udp_socket, (const char *)discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
+    long sent = sendto(udp_socket, (const char *)discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
   #else
-    int sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
+    long sent = sendto(udp_socket, discovery_buffer, sizeof(discovery_buffer), 0, (struct sockaddr *)&destination, sizeof(destination));
   #endif
   if (sent == -1) {
     perror("[pdvoice]: Failed to send discovery packet to UDP socket");
@@ -180,7 +180,7 @@ void *_pdvoice_udp(void *data) {
   struct sockaddr_in udp_client;
   socklen_t udp_client_length = sizeof(udp_client);
 
-  int received = recvfrom(udp_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&udp_client, &udp_client_length);
+  long received = recvfrom(udp_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&udp_client, &udp_client_length);
   if (received == -1) {
     perror("[pdvoice]: Failed to receive from UDP socket");
 
@@ -218,7 +218,7 @@ void *_pdvoice_udp(void *data) {
 
   cthreads_mutex_lock(thread_data->connection->mutex);
 
-  frequenc_send_text_ws_client(thread_data->client, buffer, buffer_length);
+  frequenc_send_text_ws_client(thread_data->client, buffer, (size_t)buffer_length);
 
   cthreads_mutex_unlock(thread_data->connection->mutex);
 
@@ -236,7 +236,7 @@ void *_pdvoice_udp(void *data) {
   return NULL;
 }
 
-void *_pdvoice_hb_interval(void *data) {
+static void *_pdvoice_hb_interval(void *data) {
   struct _pdvoice_hb_thread_data *thread_data = data;
 
   char *buffer = "{\"op\":3,\"d\":null}";
@@ -254,7 +254,7 @@ void *_pdvoice_hb_interval(void *data) {
   return NULL;
 }
 
-void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
+static void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_frame *message, void *user_data) {
   struct pdvoice *connection = user_data;
 
   printf("[pdvoice]: Received message from Discord voice gateway: %.*s\n", (int)message->payload_length, message->buffer);
@@ -375,7 +375,7 @@ void _pdvoice_on_message(struct httpclient_response *client, struct frequenc_ws_
   }
 }
 
-void *_pdvoice_connect(void *data) {
+static void *_pdvoice_connect(void *data) {
   struct pdvoice *connection = data;
 
   char path[4 + 1 + 1];

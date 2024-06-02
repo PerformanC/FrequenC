@@ -59,7 +59,7 @@ void httpserver_stop_server(struct httpserver *server) {
   frequenc_unsafe_free(server->available_sockets);
 }
 
-void _httpserver_add_available_socket(struct httpserver *server, int socket_index) {
+static void _httpserver_add_available_socket(struct httpserver *server, int socket_index) {
   for (int i = 0; i < server->sockets_capacity; i++) {
     if (server->available_sockets[i] != 0) continue;
 
@@ -81,7 +81,7 @@ void httpserver_disconnect_client(struct httpserver *server, struct csocket_serv
   _httpserver_add_available_socket(server, socket_index);
 }
 
-int _httpserver_select_position(struct httpserver *server) {
+static int _httpserver_select_position(struct httpserver *server) {
   for (int i = 0; i < server->sockets_capacity; i++) {
     if (server->available_sockets[i] == 0) continue;
 
@@ -94,8 +94,8 @@ int _httpserver_select_position(struct httpserver *server) {
   }
 
   server->sockets_capacity *= 2;
-  server->sockets = realloc(server->sockets, server->sockets_capacity * sizeof(struct httpserver_client));
-  server->available_sockets = realloc(server->available_sockets, server->sockets_capacity * sizeof(int));
+  server->sockets = realloc(server->sockets, (size_t)server->sockets_capacity * sizeof(struct httpserver_client));
+  server->available_sockets = realloc(server->available_sockets, (size_t)server->sockets_capacity * sizeof(int));
 
   for (int i = server->sockets_capacity / 2; i < server->sockets_capacity; i++) {
     server->sockets[i].thread = (struct cthreads_thread) { 0 };
@@ -114,7 +114,7 @@ int _httpserver_select_position(struct httpserver *server) {
   return server->sockets_length;
 }
 
-void *listen_messages(void *args) {
+static void *listen_messages(void *args) {
   struct _httpserver_connection_data *connection_data = (struct _httpserver_connection_data *)args;
 
   struct csocket_server_client client = connection_data->client;
@@ -125,12 +125,12 @@ void *listen_messages(void *args) {
   int payload_size = 0;
 
   while ((payload_size = csocket_server_recv(&client, payload, TCPLIMITS_PACKET_SIZE)) > 0) {
-    printf("[httpserver]: Received message from socket.\n - Socket: %d\n - Socket index: %d\n - Payload size: %d\n", csocket_server_client_get_id(&client), socket_index, payload_size);
+    printf("[httpserver]: Received message from socket.\n - Socket: %u\n - Socket index: %d\n - Payload size: %d\n", csocket_server_client_get_id(&client), socket_index, payload_size);
 
     if (server->sockets[socket_index].upgraded) {
       struct frequenc_ws_frame ws_frame = { 0 };
       if (frequenc_parse_ws_frame(&ws_frame, payload, payload_size) == -1) {
-        printf("[httpserver]: Failed to parse WebSocket frame.\n - Socket: %d\n", csocket_server_client_get_id(&client));
+        printf("[httpserver]: Failed to parse WebSocket frame.\n - Socket: %u\n", csocket_server_client_get_id(&client));
 
         goto disconnect;
       }
@@ -165,7 +165,7 @@ void *listen_messages(void *args) {
 
     httpserver_disconnect_client(server, &client, socket_index);
 
-    printf("[main]: Client disconnected.\n - Socket: %d\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(&client), socket_index, cthreads_thread_id(cthreads_thread_self()));
+    printf("[main]: Client disconnected.\n - Socket: %u\n - Socket index: %d\n - Thread ID: %lu\n", csocket_server_client_get_id(&client), socket_index, cthreads_thread_id(cthreads_thread_self()));
 
     return NULL;
   }
@@ -198,7 +198,7 @@ void httpserver_handle_request(struct httpserver *server, void (*callback)(struc
     server->sockets_length++;
 
     char ip[16 + 1];
-    printf("[httpserver]: Connection accepted.\n - Socket: %d\n - Socket index: %d\n - IP: %s\n - Port: %d\n", socket, socket_index, csocket_server_client_get_ip(&client, ip), csocket_server_client_get_port(&client));
+    printf("[httpserver]: Connection accepted.\n - Socket: %d\n - Socket index: %d\n - IP: %s\n - Port: %u\n", socket, socket_index, csocket_server_client_get_ip(&client, ip), csocket_server_client_get_port(&client));
 
     struct httpserver_client http_client = {
       .thread = { 0 },
@@ -237,7 +237,7 @@ void httpserver_upgrade_socket(struct httpserver *server, int socket_index) {
   server->sockets[socket_index].upgraded = true;
 }
 
-char *_httpserver_get_status_text(int status) {
+static char *_httpserver_get_status_text(int status) {
   switch (status) {
     case 100: return "Continue";
     case 101: return "Switching Protocols";
@@ -317,7 +317,7 @@ char *_httpserver_get_status_text(int status) {
   return "Unknown";
 }
 
-int _calculate_response_length(struct httpserver_response *response) {
+static int _calculate_response_length(struct httpserver_response *response) {
   int length = 0;
 
   length += sizeof("HTTP/1.1 ");
@@ -341,7 +341,7 @@ int _calculate_response_length(struct httpserver_response *response) {
 }
 
 void httpserver_send_response(struct httpserver_response *response) {
-  int length = _calculate_response_length(response);
+  size_t length = (size_t)_calculate_response_length(response);
   char *response_string = frequenc_safe_malloc(length);
   size_t response_position = 0;
 

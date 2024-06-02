@@ -14,7 +14,7 @@
 
 #include "csocket-client.h"
 
-void _csocket_client_close(struct csocket_client *client) {
+static void _csocket_client_close(struct csocket_client *client) {
   #ifdef _WIN32
     closesocket(client->socket);
     WSACleanup();
@@ -100,9 +100,9 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
   return CSOCKET_CLIENT_SUCCESS;
 }
 
-int csocket_client_send(struct csocket_client *client, char *data, int size) {
+int csocket_client_send(struct csocket_client *client, char *data, size_t size) {
   if (client->secure) {
-    int ret = pcll_send(&client->connection, data, size);
+    int ret = pcll_send(&client->connection, data, (int)size);
     if (ret == PCLL_ERROR) {
       perror("[csocket-client]: Failed to send data");
 
@@ -119,18 +119,18 @@ int csocket_client_send(struct csocket_client *client, char *data, int size) {
   return CSOCKET_CLIENT_SUCCESS;
 }
 
-int csocket_client_recv(struct csocket_client *client, char *buffer, int size) {
+long csocket_client_recv(struct csocket_client *client, char *buffer, size_t size) {
   if (client->secure) {
-    int recv_length = pcll_recv(&client->connection, buffer, size);
+    int recv_length = pcll_recv(&client->connection, buffer, (int)size);
     if (recv_length == PCLL_ERROR) {
       perror("[csocket-client]: Failed to receive data");
 
       return CSOCKET_CLIENT_ERROR;
     }
 
-    return recv_length;
+    return (long)recv_length;
   } else {
-    int recv_length = recv(client->socket, buffer, size, 0);
+    long recv_length = recv(client->socket, buffer, size, 0);
     if (recv_length < 0) {
       perror("[csocket-client]: Failed to receive data");
 

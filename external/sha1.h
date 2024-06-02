@@ -2,6 +2,7 @@
   licenses/sha1.license
 
   * Contains prefix edits to avoid conflicts with OpenSSL.
+  * Fixed macros to remove additional ;
 */
 
 #ifndef SHA1C_H

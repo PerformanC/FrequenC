@@ -54,11 +54,11 @@ int csocket_server_init(struct csocket_server *server);
 
 int csocket_server_accept(struct csocket_server server, struct csocket_server_client *client);
 
-int csocket_server_send(struct csocket_server_client *client, char *data, int length);
+int csocket_server_send(struct csocket_server_client *client, char *data, size_t length);
 
 int csocket_close_client(struct csocket_server_client *client);
 
-int csocket_server_recv(struct csocket_server_client *client, char *buffer, int length);
+long csocket_server_recv(struct csocket_server_client *client, char *buffer, size_t length);
 
 int csocket_server_close(struct csocket_server *server);
 

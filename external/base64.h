@@ -5,6 +5,7 @@
     - Remove the need for malloc.
     - Added "len" parameter to b64_decode.
     - Removed NULL termination from b64_encode.
+    - Made b64_isvalidchar, b64invs and b64chars static.
 
   Modified by: @ThePedroo
 */

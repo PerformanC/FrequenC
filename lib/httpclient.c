@@ -11,7 +11,7 @@
 
 #include "httpclient.h"
 
-size_t _httpclient_calculate_request_length(struct httpclient_request_params *request) {
+static size_t _httpclient_calculate_request_length(struct httpclient_request_params *request) {
   size_t length = 0;
 
   length += sizeof("HTTP/1.1 ") - 1;
@@ -27,7 +27,7 @@ size_t _httpclient_calculate_request_length(struct httpclient_request_params *re
   }
 
   if (request->body != NULL) {
-    length += (sizeof("Content-Length: \r\n\r\n") - 1) + snprintf(NULL, 0, "%zu", request->body->length) + request->body->length;
+    length += (sizeof("Content-Length: \r\n\r\n") - 1) + (size_t)snprintf(NULL, 0, "%zu", request->body->length) + request->body->length;
   } else {
     length += 2;
   }
@@ -35,15 +35,15 @@ size_t _httpclient_calculate_request_length(struct httpclient_request_params *re
   return length;
 }
 
-void _httpclient_build_request(struct httpclient_request_params *request, struct tstr_string *response) {
+static void _httpclient_build_request(struct httpclient_request_params *request, struct tstr_string *response) {
   size_t length = _httpclient_calculate_request_length(request);
   size_t current_length = 0;
   char *request_string = frequenc_safe_malloc(length * sizeof(char));
 
-  current_length = snprintf(request_string, length, "%s %s HTTP/1.1\r\nHost: %s\r\n", request->method, request->path, request->host);
+  current_length = (size_t)snprintf(request_string, length, "%s %s HTTP/1.1\r\nHost: %s\r\n", request->method, request->path, request->host);
 
   for (int i = 0; i < request->headers_length; i++) {
-    current_length += snprintf(request_string + current_length, (length + 1) - current_length, "%s: %s\r\n", request->headers[i].key, request->headers[i].value);
+    current_length += (size_t)snprintf(request_string + current_length, (length + 1) - current_length, "%s: %s\r\n", request->headers[i].key, request->headers[i].value);
   }
 
   if (request->body != NULL) {
@@ -54,7 +54,7 @@ void _httpclient_build_request(struct httpclient_request_params *request, struct
     tstr_append(request_string, content_length_str, &current_length, content_length_length);
 
     tstr_append(request_string, "\r\n\r\n", &current_length, 4);
-    tstr_append(request_string, request->body->string, &current_length, request->body->length);
+    tstr_append(request_string, request->body->string, &current_length, (int)request->body->length);
   } else {
     tstr_append(request_string, "\r\n", &current_length, 2);
   }
@@ -76,7 +76,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   struct tstr_string http_request;
   _httpclient_build_request(request, &http_request);
 
-  ret = csocket_client_send(&http_response->connection, http_request.string, (int)http_request.length);
+  ret = csocket_client_send(&http_response->connection, http_request.string, http_request.length);
   if (ret == CSOCKET_CLIENT_ERROR) {
     csocket_client_close(&http_response->connection);
 
@@ -88,7 +88,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
 
   char packet[TCPLIMITS_PACKET_SIZE];
 
-  int len = csocket_client_recv(&http_response->connection, packet, TCPLIMITS_PACKET_SIZE);
+  long len = csocket_client_recv(&http_response->connection, packet, TCPLIMITS_PACKET_SIZE);
   if (len == CSOCKET_CLIENT_ERROR) {
     csocket_client_close(&http_response->connection);
 
@@ -100,7 +100,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   struct httpparser_header headers[30];
   httpparser_init_response((struct httpparser_response *)http_response, headers, 30);
 
-  if (httpparser_parse_response((struct httpparser_response *)http_response, packet, len) == -1) {
+  if (httpparser_parse_response((struct httpparser_response *)http_response, packet, (int)len) == -1) {
     csocket_client_close(&http_response->connection);
 
     printf("[https-client]: Failed to parse HTTP response.\n");
@@ -109,11 +109,11 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
   }
 
   if (http_response->finished == 0) {
-    int chunk_size_left = (int)((size_t)http_response->chunk_length - http_response->body_length);
+    long chunk_size_left = (long)((size_t)http_response->chunk_length - http_response->body_length);
     
     read_chunk:
 
-    http_response->body = realloc(http_response->body, http_response->body_length + chunk_size_left + 1);
+    http_response->body = realloc(http_response->body, http_response->body_length + (size_t)chunk_size_left + 1);
 
     if (http_response->body == NULL) {
       csocket_client_close(&http_response->connection);
@@ -124,7 +124,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
     }
 
     while (chunk_size_left > 0) {
-      len = csocket_client_recv(&http_response->connection, packet, chunk_size_left > TCPLIMITS_PACKET_SIZE ? TCPLIMITS_PACKET_SIZE : chunk_size_left);
+      len = csocket_client_recv(&http_response->connection, packet, (size_t)(chunk_size_left > TCPLIMITS_PACKET_SIZE ? TCPLIMITS_PACKET_SIZE : chunk_size_left));
       if (len == CSOCKET_CLIENT_ERROR) {
         csocket_client_close(&http_response->connection);
 
@@ -133,7 +133,7 @@ int httpclient_request(struct httpclient_request_params *request, struct httpcli
         return -1;
       }
 
-      tstr_append(http_response->body, packet, &http_response->body_length, len);
+      tstr_append(http_response->body, packet, &http_response->body_length, (int)len);
       chunk_size_left -= len;
 
       if (chunk_size_left == 0) break;

@@ -70,14 +70,14 @@ int frequenc_parse_ws_frame(struct frequenc_ws_frame *frame_header, char *buffer
   if (is_masked) {
     start_index += 4;
 
-    if ((size_t)len < start_index + payload_length) {
+    if ((size_t)len < (size_t)start_index + payload_length) {
       perror("[websocket]: Frame is too short");
 
       return -1;
     }
 
     for (size_t i = 0; i < payload_length; ++i) {
-      buffer[start_index + i] ^= mask[i % 4];
+      buffer[(size_t)start_index + i] ^= mask[i % 4];
     }
   }
 
@@ -96,17 +96,17 @@ void frequenc_gen_accept_key(char *key, char *output) {
   char results[20];
 
   char concatenated_string[24 + 36 + 1];
-  int concatenatedStringLength = snprintf(concatenated_string, sizeof(concatenated_string), "%s%s", key, magic_string);
+  int concatenated_string_length = snprintf(concatenated_string, sizeof(concatenated_string), "%s%s", key, magic_string);
 
   SHA1CInit(&sha);
-  SHA1CUpdate(&sha, (const unsigned char *)concatenated_string, concatenatedStringLength);
+  SHA1CUpdate(&sha, (const unsigned char *)concatenated_string, (uint32_t)concatenated_string_length);
   SHA1CFinal((unsigned char *)results, &sha);
 
   b64_encode((unsigned char *)results, output, sizeof(results));
   output[28] = '\0';
 }
 
-void frequenc_key_to_base64(char *key, char *output) {
+static void _frequenc_key_to_base64(char *key, char *output) {
   char results[20];
 
   SHA1C_CTX sha;
@@ -142,10 +142,10 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   
   srand(frequenc_safe_seeding());
 
-  mask[0] = rand();
-  mask[1] = rand();
-  mask[2] = rand();
-  mask[3] = rand();
+  mask[0] = (unsigned int)rand();
+  mask[1] = (unsigned int)rand();
+  mask[2] = (unsigned int)rand();
+  mask[3] = (unsigned int)rand();
 
   payload_start_index += 4;
 
@@ -176,16 +176,16 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   memcpy(buffer + payload_start_index, response->buffer, response->payload_length);
 
   buffer[1] |= 128;
-  buffer[payload_start_index - 4] = mask[0];
-  buffer[payload_start_index - 3] = mask[1];
-  buffer[payload_start_index - 2] = mask[2];
-  buffer[payload_start_index - 1] = mask[3];
+  buffer[payload_start_index - 4] = (unsigned char)mask[0];
+  buffer[payload_start_index - 3] = (unsigned char)mask[1];
+  buffer[payload_start_index - 2] = (unsigned char)mask[2];
+  buffer[payload_start_index - 1] = (unsigned char)mask[3];
 
   for (size_t i = 0; i < response->payload_length; ++i) {
     buffer[payload_start_index + i] ^= mask[i & 3];
   }
 
-  if (csocket_server_send(response->client, (char *)buffer, (int)(payload_start_index + response->payload_length)) == PCLL_ERROR) {
+  if (csocket_server_send(response->client, (char *)buffer, payload_start_index + response->payload_length) == PCLL_ERROR) {
     perror("[websocket]: Failed to send message");
 
     frequenc_unsafe_free(buffer);
@@ -218,15 +218,15 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
   srand(frequenc_safe_seeding());
 
-  size_t keyInt = (long)rand();
+  int key_int = rand();
 
-  frequenc_key_to_base64((char *)&keyInt, request->headers[request->headers_length + 3].value);
+  _frequenc_key_to_base64((char *)&key_int, request->headers[request->headers_length + 3].value);
   request->headers[request->headers_length + 3].value[24] = '\0';
 
   char accept_key[29];
   frequenc_gen_accept_key(request->headers[request->headers_length + 3].value, accept_key);
 
-  snprintf(request->headers[request->headers_length + 3].key, header_key_char_size, "Sec-WebSocket-Key");
+  snprintf(request->headers[request->headers_length + 3].key, (size_t)header_key_char_size, "Sec-WebSocket-Key");
 
   request->headers_length += 4;
 
@@ -253,7 +253,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
   size_t continue_buffer_length = 0;
 
   while (1) {
-    int len = csocket_client_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
+    long len = csocket_client_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
     if (len == 0) {
       perror("[websocket]: Connection closed");
 
@@ -265,7 +265,7 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
     }
 
     struct frequenc_ws_frame header = { 0 };
-    frequenc_parse_ws_frame(&header, packet, len);
+    frequenc_parse_ws_frame(&header, packet, (int)len);
 
     switch (header.opcode) {
       case 0: {
@@ -365,17 +365,17 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
   
   srand(frequenc_safe_seeding());
 
-  mask[0] = rand();
-  mask[1] = rand();
-  mask[2] = rand();
-  mask[3] = rand();
+  mask[0] = (unsigned int)rand();
+  mask[1] = (unsigned int)rand();
+  mask[2] = (unsigned int)rand();
+  mask[3] = (unsigned int)rand();
 
   payload_start_index += 4;
 
   if (message_length >= 65536) payload_start_index += 8;
   else if (message_length > 125) payload_start_index += 2;
 
-  unsigned char *buffer = frequenc_safe_malloc(payload_start_index + message_length * sizeof(unsigned char));
+  unsigned char *buffer = frequenc_safe_malloc(((size_t)payload_start_index + message_length) * sizeof(unsigned char));
 
   buffer[0] = 1 | 128;
 
@@ -403,16 +403,16 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
   memcpy(buffer + payload_start_index, message, message_length);
 
   buffer[1] |= 128;
-  buffer[payload_start_index - 4] = mask[0];
-  buffer[payload_start_index - 3] = mask[1];
-  buffer[payload_start_index - 2] = mask[2];
-  buffer[payload_start_index - 1] = mask[3];
+  buffer[payload_start_index - 4] = (unsigned char)mask[0];
+  buffer[payload_start_index - 3] = (unsigned char)mask[1];
+  buffer[payload_start_index - 2] = (unsigned char)mask[2];
+  buffer[payload_start_index - 1] = (unsigned char)mask[3];
 
   for (size_t i = 0; i < message_length; ++i) {
-    buffer[payload_start_index + i] ^= mask[i & 3];
+    buffer[(size_t)payload_start_index + i] ^= (unsigned char)mask[i & 3];
   }
 
-  if (csocket_client_send(&response->connection, (char *)buffer, (int)(payload_start_index + message_length)) == PCLL_ERROR) {
+  if (csocket_client_send(&response->connection, (char *)buffer, (size_t)payload_start_index + message_length) == PCLL_ERROR) {
     perror("[websocket]: Failed to send message");
 
     frequenc_unsafe_free(buffer);

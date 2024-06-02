@@ -226,10 +226,10 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 
     ret = SSL_set_fd(connection->ssl, fd);
     if (ret != SSL_SUCCESS) {
-        SSL_free(connection->ssl);
-        SSL_CTX_free(connection->ctx);
+      SSL_free(connection->ssl);
+      SSL_CTX_free(connection->ctx);
 
-        return ret;
+      return ret;
     }
 
     return PCLL_SUCCESS;
@@ -248,10 +248,10 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 
     ret = wolfSSL_set_fd(connection->ssl, fd);
     if (ret != WOLFSSL_SUCCESS) {
-        wolfSSL_free(connection->ssl);
-        wolfSSL_CTX_free(connection->ctx);
+      wolfSSL_free(connection->ssl);
+      wolfSSL_CTX_free(connection->ctx);
 
-        return ret;
+      return ret;
     }
 
     return PCCL_SUCCESS;
@@ -324,20 +324,18 @@ int pcll_connect(struct pcll_connection *connection) {
         context ? NULL : &connection->context,
         &outdesc,
         &flags,
-        NULL);
+        NULL
+      );
 
       context = &connection->context;
 
       if (inbuffers[1].BufferType == SECBUFFER_EXTRA) {
-        /* TODO: use ANSI C function */
-        MoveMemory(connection->incoming, connection->incoming + (connection->received - inbuffers[1].cbBuffer), inbuffers[1].cbBuffer);
+        memmove(connection->incoming, connection->incoming + (connection->received - inbuffers[1].cbBuffer), inbuffers[1].cbBuffer);
 
         connection->received = inbuffers[1].cbBuffer;
       }
 
-      else {
-        connection->received = 0;
-      }
+      else connection->received = 0;
 
       if (sec == SEC_E_OK) break;
 
@@ -348,11 +346,11 @@ int pcll_connect(struct pcll_connection *connection) {
         int size = outbuffers[0].cbBuffer;
 
         while (size != 0) {
-          int d = send(connection->socket, buffer, size, 0);
-          if (d <= 0) break;
+          int ret = send(connection->socket, buffer, size, 0);
+          if (ret <= 0) break;
 
-          size -= d;
-          buffer += d;
+          size -= ret;
+          buffer += ret;
         }
 
         FreeContextBuffer(outbuffers[0].pvBuffer);
@@ -364,12 +362,12 @@ int pcll_connect(struct pcll_connection *connection) {
 
       if (connection->received == sizeof(connection->incoming)) goto fail;
 
-      int r = recv(connection->socket, connection->incoming + connection->received, sizeof(connection->incoming) - connection->received, 0);
-      if (r == 0) return PCLL_SUCCESS;
+      int ret = recv(connection->socket, connection->incoming + connection->received, sizeof(connection->incoming) - connection->received, 0);
+      if (ret == 0) return PCLL_SUCCESS;
 
-      else if (r < 0) goto fail;
+      else if (ret < 0) goto fail;
 
-      connection->received += r;
+      connection->received += ret;
     }
 
     QueryContextAttributes(context, SECPKG_ATTR_STREAM_SIZES, &connection->sizes);
@@ -430,7 +428,7 @@ int pcll_get_error(struct pcll_connection *connection, int error) {
   #endif
 }
 
-int pcll_send(struct pcll_connection* connection, char* data, int length) {
+int pcll_send(struct pcll_connection* connection, char *data, int length) {
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_write(connection->ssl, data, length);
     if (ret != length) {

@@ -16,32 +16,32 @@ struct _decoder_class {
   unsigned char *buffer;
 };
 
-int _change_bytes(struct _decoder_class *decoder_class, int bytes) {
+static int _change_bytes(struct _decoder_class *decoder_class, int bytes) {
   decoder_class->position += bytes;
   return decoder_class->position - bytes;
 }
 
-int8_t _read_byte(struct _decoder_class *decoder_class) {
+static int8_t _read_byte(struct _decoder_class *decoder_class) {
   return (int8_t)decoder_class->buffer[_change_bytes(decoder_class, 1)];
 }
 
-uint16_t _read_unsigned_short(struct _decoder_class *decoder_class) {
+static uint16_t _read_unsigned_short(struct _decoder_class *decoder_class) {
   return decoder_class->buffer[_change_bytes(decoder_class, 2)] << 8 | decoder_class->buffer[decoder_class->position - 1];
 }
 
-uint32_t _read_int(struct _decoder_class *decoder_class) {
+static uint32_t _read_int(struct _decoder_class *decoder_class) {
   return decoder_class->buffer[_change_bytes(decoder_class, 4)] << 24 | decoder_class->buffer[decoder_class->position - 3] << 16 |
          decoder_class->buffer[decoder_class->position - 2] << 8 | decoder_class->buffer[decoder_class->position - 1];
 }
 
-uint64_t _read_long(struct _decoder_class *decoder_class) {
+static size_t _read_long(struct _decoder_class *decoder_class) {
   uint32_t lsb = _read_int(decoder_class);
   uint32_t msb = _read_int(decoder_class);
 
   return msb + lsb;
 }
 
-void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result) {
+static void _read_utf(struct _decoder_class *decoder_class, struct tstr_string *result) {
   uint16_t len = _read_unsigned_short(decoder_class);
   size_t start = _change_bytes(decoder_class, len);
 
@@ -69,7 +69,7 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
   buf.position = 0;
   buf.buffer = output;
 
-  int buffer_length = _read_int(&buf) & ~(1 << 30);
+  int buffer_length = (int)(_read_int(&buf) & ~(1 << 30));
 
   if ((size_t)buffer_length != output_length - 4) {
     printf("[track]: Failed to decode track.\n - Reason: Track binary length doesn't match track set length.\n - Expected: %d\n - Actual: %zu\n", buffer_length, output_length - 4);
@@ -137,42 +137,42 @@ int frequenc_decode_track(struct frequenc_track_info *result, const struct tstr_
   return 0;
 }
 
-void _write_byte(unsigned char *buffer, size_t *position, int8_t value) {
-  buffer[*position] = value;
+static void _write_byte(unsigned char *buffer, size_t *position, int8_t value) {
+  buffer[*position] = (unsigned char)value;
   *position += 1;
 }
 
-void _write_unsigned_short(unsigned char *buffer, size_t *position, uint16_t value) {
+static void _write_unsigned_short(unsigned char *buffer, size_t *position, uint16_t value) {
   buffer[*position] = value >> 8;
   buffer[*position + 1] = value & 0xFF;
   *position += 2;
 }
 
-void _internal_write_int(unsigned char *buffer, size_t position, uint32_t value) {
+static void _internal_write_int(unsigned char *buffer, size_t position, uint32_t value) {
   buffer[position] = value >> 24;
   buffer[position + 1] = value >> 16;
   buffer[position + 2] = value >> 8;
   buffer[position + 3] = value & 0xFF;
 }
 
-void _write_int(unsigned char *buffer, size_t *position, uint32_t value) {
+static void _write_int(unsigned char *buffer, size_t *position, uint32_t value) {
   _internal_write_int(buffer, *position, value);
   *position += 4;
 }
 
-void _write_long(unsigned char *buffer, size_t *position, uint64_t value) {
+static void _write_long(unsigned char *buffer, size_t *position, size_t value) {
   _write_int(buffer, position, (uint32_t)(value >> 32));
   _write_int(buffer, position, (uint32_t)(value & 0xFFFFFFFF));
 }
 
-void _write_utf(unsigned char *buffer, size_t *position, struct tstr_string value) {
-  _write_unsigned_short(buffer, position, (int)value.length);
+static void _write_utf(unsigned char *buffer, size_t *position, struct tstr_string value) {
+  _write_unsigned_short(buffer, position, (uint16_t)value.length);
   memcpy(buffer + *position, value.string, value.length);
 
   *position += value.length;
 }
 
-size_t _calculate_track_size(struct frequenc_track_info *track) {
+static size_t _calculate_track_size(struct frequenc_track_info *track) {
   size_t size = 4;
 
   /* Version */
@@ -287,51 +287,51 @@ void frequenc_partial_track_info_to_json(struct frequenc_track_info *track_info,
   pjsonb_leave_object(track_json);
 }
 
-int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], int pathLen, int pathSize) {
-  path[pathLen] = "title";
-  jsmnf_pair *title = jsmnf_find_path(pairs, json, path, pathSize);
+int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pair *pairs, char *json, char *path[], unsigned int path_len, unsigned int path_size) {
+  path[path_len] = "title";
+  jsmnf_pair *title = jsmnf_find_path(pairs, json, path, path_size);
   if (title == NULL) return -1;
 
   char *title_str = frequenc_safe_malloc(title->v.len + 1);
   frequenc_fast_copy(json + title->v.pos, title_str, title->v.len);
 
-  path[pathLen] = "author";
-  jsmnf_pair *author = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "author";
+  jsmnf_pair *author = jsmnf_find_path(pairs, json, path, path_size);
   if (author == NULL) return -1;
 
   char *author_str = frequenc_safe_malloc(author->v.len + 1);
   frequenc_fast_copy(json + author->v.pos, author_str, author->v.len);
 
-  path[pathLen] = "length";
-  jsmnf_pair *length = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "length";
+  jsmnf_pair *length = jsmnf_find_path(pairs, json, path, path_size);
   if (length == NULL) return -1;
 
   char *length_str = frequenc_safe_malloc(length->v.len + 1);
   frequenc_fast_copy(json + length->v.pos, length_str, length->v.len);
-  long length_num = strtol(length_str, NULL, 10);
+  size_t length_num = (size_t)strtol(length_str, NULL, 10);
   frequenc_unsafe_free(length_str);
 
-  path[pathLen] = "identifier";
-  jsmnf_pair *identifier = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "identifier";
+  jsmnf_pair *identifier = jsmnf_find_path(pairs, json, path, path_size);
   if (identifier == NULL) return -1;
 
   char *identifier_str = frequenc_safe_malloc(identifier->v.len + 1);
   frequenc_fast_copy(json + identifier->v.pos, identifier_str, identifier->v.len);
 
-  path[pathLen] = "is_stream";
-  jsmnf_pair *is_stream = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "is_stream";
+  jsmnf_pair *is_stream = jsmnf_find_path(pairs, json, path, path_size);
   if (is_stream == NULL) return -1;
   bool is_stream_bool = json[is_stream->v.pos] == 't';
 
-  path[pathLen] = "uri";
-  jsmnf_pair *uri = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "uri";
+  jsmnf_pair *uri = jsmnf_find_path(pairs, json, path, path_size);
   if (uri == NULL) return -1;
 
   char *uri_str = frequenc_safe_malloc(uri->v.len + 1);
   frequenc_fast_copy(json + uri->v.pos, uri_str, uri->v.len);
 
-  path[pathLen] = "artwork_url";
-  jsmnf_pair *artwork_url = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "artwork_url";
+  jsmnf_pair *artwork_url = jsmnf_find_path(pairs, json, path, path_size);
 
   char *artwork_url_str = NULL;
   if (artwork_url != NULL) {
@@ -339,8 +339,8 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
     frequenc_fast_copy(json + artwork_url->v.pos, artwork_url_str, artwork_url->v.len);
   }
 
-  path[pathLen] = "isrc";
-  jsmnf_pair *isrc = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "isrc";
+  jsmnf_pair *isrc = jsmnf_find_path(pairs, json, path, path_size);
 
   char *isrc_str = NULL;
   if (isrc != NULL) {
@@ -348,8 +348,8 @@ int frequenc_json_to_track_info(struct frequenc_track_info *track_info, jsmnf_pa
     frequenc_fast_copy(json + isrc->v.pos, isrc_str, isrc->v.len);
   }
 
-  path[pathLen] = "source_name";
-  jsmnf_pair *source_name = jsmnf_find_path(pairs, json, path, pathSize);
+  path[path_len] = "source_name";
+  jsmnf_pair *source_name = jsmnf_find_path(pairs, json, path, path_size);
   if (source_name == NULL) return -1;
 
   char *source_name_str = frequenc_safe_malloc(source_name->v.len + 1);

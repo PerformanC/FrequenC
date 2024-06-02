@@ -19,7 +19,7 @@ void qparser_init(struct qparser_info *parseInfo, struct qparser_query *buffer, 
   parseInfo->length = length;
   parseInfo->queriesLength = 0;
   parseInfo->queries = buffer;
-  memset(parseInfo->queries, 0, length * sizeof(struct qparser_query));
+  memset(parseInfo->queries, 0, (size_t)length * sizeof(struct qparser_query));
 }
 
 void qparser_parse(struct qparser_info *parseInfo, char *url) {
