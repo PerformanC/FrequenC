@@ -31,19 +31,19 @@ GITHUB_BRANCH ?= unknown# The branch that the commit was made on.
 SRC_DIR = lib external sources
 OBJ_DIR = obj
 
-CFLAGS ?= -std=c99 -Ofast -march=native -fno-signed-zeros -fno-trapping-math -funroll-loops
+CFLAGS ?= -D_POSIX_C_SOURCE=199309L -Iinclude -Iexternal -Isources -std=c99 -Ofast -march=native -fno-signed-zeros
 
 ifeq ($(CC),gcc)
-	CFLAGS += -fanalyzer -Wno-analyzer-fd-leak -flto -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wno-stringop-overread
+	CFLAGS += -fanalyzer -Wno-analyzer-fd-leak -flto -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wno-stringop-overread -Wl,--strip-all
 else ifeq ($(CC),clang)
-	CFLAGS += -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -flto=thin
+	CFLAGS += -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -flto=thin -Xclang -fmerge-functions
 else ifeq ($(CC),zig cc)
-	CFLAGS += -flto=thin -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow
+	CFLAGS += -flto=thin -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wl,--strip-all
 else
-	CFLAGS += -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wno-stringop-overread
+	CFLAGS += -Wpedantic -Wall -Wextra -Werror -Wformat -Wuninitialized -Wshadow -Wno-stringop-overread -Wl,--strip-all
 endif
 
-LDFLAGS ?= -Iinclude -Iexternal -Isources
+LDFLAGS ?= -Wl,-s
 
 ifeq ($(OS),Windows_NT)
 	LDFLAGS += -lwsock32
@@ -60,13 +60,13 @@ FrequenC: $(OBJS)
 	$(CC) $^ -o $@ $(CFLAGS) $(OPTIONS) $(LDFLAGS) $(SSL_FLAGS)
 
 $(OBJ_DIR)/%.o: lib/%.c | $(OBJ_DIR)
-	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS) $(LDFLAGS)
+	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS)
 
 $(OBJ_DIR)/%.o: external/%.c | $(OBJ_DIR)
-	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS) $(LDFLAGS)
+	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS)
 
 $(OBJ_DIR)/%.o: sources/%.c | $(OBJ_DIR)
-	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS) $(LDFLAGS)
+	$(CC) -c $< -o $@ $(CFLAGS) $(OPTIONS)
 
 $(OBJ_DIR):
 	mkdir -p $@

@@ -20,7 +20,7 @@ jobs:
       env:
         GITHUB_COMMIT_SHA: ${{ github.sha }}
         GITHUB_BRANCH: ${{ github.ref_name }}
-      run: CFLAGS="-Ofast -fno-signed-zeros -fno-trapping-math -funroll-loops" make
+      run: CFLAGS="-D_POSIX_C_SOURCE=199309L -Iinclude -Iexternal -Isources -std=c99 -Ofast -march=native -static -Wl,--strip-all" make
 
     - name: Archive Build
       uses: actions/upload-artifact@v4
