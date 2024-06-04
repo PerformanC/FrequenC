@@ -89,9 +89,10 @@ void frequenc_sleep(int ms) {
     Sleep(ms);
   #else
     #if _POSIX_C_SOURCE >= 199309L
-      struct timespec ts;
-      ts.tv_sec = ms / 1000;
-      ts.tv_nsec = (ms % 1000) * 1000000;
+      struct timespec ts = {
+        .tv_sec = ms / 1000,
+        .tv_nsec = (ms % 1000) * 1000000
+      };
 
       nanosleep(&ts, NULL);
     #else
