@@ -11,10 +11,10 @@
   #include <sys/socket.h>
   #include <arpa/inet.h>
   #include <unistd.h>
+#endif
 
-  #ifdef CSOCKET_SECURE
-    #include "pcll.h"
-  #endif
+#ifdef CSOCKET_SECURE
+  #include "pcll.h"
 #endif
 
 #include "csocket-server.h"
