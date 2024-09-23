@@ -41,6 +41,8 @@ void pcll_init_ssl_library(void) {
 }
 
 int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key) {
+  (void) server; (void) cert; (void) key;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     server->ctx = SSL_CTX_new(TLS_server_method());
     if (server->ctx == NULL) {
@@ -118,6 +120,8 @@ int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key) {
 }
 
 int pcll_init_ssl(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     connection->ctx = SSL_CTX_new(TLS_client_method());
     if (connection->ctx == NULL) {
@@ -168,10 +172,15 @@ int pcll_init_ssl(struct pcll_connection *connection) {
     if (WSAStartup(MAKEWORD(2, 2), &connection->wsa_data) != 0) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
+  #else
+    /* INFO: No found SSL implementation */
+    return PCLL_ERROR;
   #endif
 }
 
 int pcll_init_only_ssl(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     connection->ssl = SSL_new(connection->ctx);
     if (connection->ssl == NULL) {
@@ -206,9 +215,9 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 #else
   int pcll_set_safe_mode(struct pcll_connection* connection, char* hostname, unsigned short port, int fd) {
 #endif
-  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
-    (void) port;
+  (void) connection; (void) hostname; (void) port; (void) fd;
 
+  #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     SSL_CTX_set_verify(connection->ctx, SSL_VERIFY_PEER, NULL);
 
     /* TODO: Get SSL root and CA trust store on PCLL */
@@ -234,8 +243,7 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
-    (void) port;
-    (void) hostname; /* No SNI */
+    /* INFO: No SNI for WolfSSL */
 
     wolfSSL_CTX_set_verify(connection->ctx, WOLFSSL_VERIFY_PEER, NULL);
 
@@ -285,6 +293,8 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 }
 
 int pcll_connect(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_connect(connection->ssl);
     if (ret != SSL_SUCCESS) return ret;
@@ -385,6 +395,8 @@ int pcll_connect(struct pcll_connection *connection) {
 }
 
 int pcll_accept(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_accept(connection->ssl);
     if (ret != SSL_SUCCESS) {
@@ -415,6 +427,8 @@ int pcll_accept(struct pcll_connection *connection) {
 }
 
 int pcll_get_error(struct pcll_connection *connection, int error) {
+  (void) connection; (void) error;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     return SSL_get_error(connection->ssl, error);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
@@ -429,6 +443,8 @@ int pcll_get_error(struct pcll_connection *connection, int error) {
 }
 
 int pcll_send(struct pcll_connection* connection, char *data, int length) {
+  (void) connection; (void) data; (void) length;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_write(connection->ssl, data, length);
     if (ret != length) {
@@ -496,6 +512,8 @@ int pcll_send(struct pcll_connection* connection, char *data, int length) {
 }
 
 int pcll_recv(struct pcll_connection *connection, char *data, int length) {
+  (void) connection; (void) data; (void) length;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int recv_length = SSL_read(connection->ssl, data, length);
     if (recv_length == -1) {
@@ -607,6 +625,8 @@ int pcll_recv(struct pcll_connection *connection, char *data, int length) {
 }
 
 void pcll_free(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     if (connection->ssl != NULL) SSL_free(connection->ssl);
     if (connection->ctx != NULL) SSL_CTX_free(connection->ctx);
@@ -620,6 +640,8 @@ void pcll_free(struct pcll_connection *connection) {
 }
 
 void pcll_shutdown(struct pcll_connection *connection) {
+  (void) connection;
+
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     SSL_shutdown(connection->ssl);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
