@@ -14,14 +14,14 @@ struct qparser_query {
 
 struct qparser_info {
   int length;
-  int queriesLength;
+  int queries_length;
   struct qparser_query *queries;
 };
 
-void qparser_init(struct qparser_info *parseInfo, struct qparser_query *buffer, int length);
+void qparser_init(struct qparser_info *parse_info, struct qparser_query *buffer, int length);
 
-void qparser_parse(struct qparser_info *parseInfo, char *url);
+void qparser_parse(struct qparser_info *parse_info, char *url);
 
-struct qparser_query *qparser_get_query(struct qparser_info *parseInfo, char *key);
+struct qparser_query *qparser_get_query(struct qparser_info *parse_info, char *key);
 
 #endif
