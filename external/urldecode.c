@@ -47,4 +47,6 @@ void urldecoder_decode(char *dst, const char *src) {
       *dst++ = *src++;
     }
   }
+
+  *dst = '\0';
 }

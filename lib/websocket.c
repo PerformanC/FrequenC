@@ -81,6 +81,14 @@ int frequenc_parse_ws_frame(struct frequenc_ws_frame *frame_header, char *buffer
     }
   }
 
+  /* INFO: Server frames are unmasked, without this a split frame would
+             dispatch with more payload claimed than received. */
+  if (!is_masked && (size_t)len < (size_t)start_index + payload_length) {
+    perror("[websocket]: Frame is too short");
+
+    return -1;
+  }
+
   frame_header->opcode = opcode;
   frame_header->fin = fin;
   frame_header->buffer = &buffer[start_index];
@@ -218,9 +226,11 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
   srand(frequenc_safe_seeding());
 
-  int key_int = rand();
+  /* INFO: Rand bytes are not terminated, strlen would overrun them. */
+  char key_bytes[9];
+  snprintf(key_bytes, sizeof(key_bytes), "%08x", (unsigned)rand());
 
-  _frequenc_key_to_base64((char *)&key_int, request->headers[request->headers_length + 3].value);
+  _frequenc_key_to_base64(key_bytes, request->headers[request->headers_length + 3].value);
   request->headers[request->headers_length + 3].value[24] = '\0';
 
   char accept_key[29];
@@ -248,24 +258,39 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
 
   cbs->on_connect(response, cbs->user_data);
 
-  char packet[TCPLIMITS_PACKET_SIZE + 1];
+  /* INFO: TCP does not preserve frame boundaries, stage bytes until a
+             whole frame is available. */
+  char *packet = frequenc_safe_malloc(65536 * sizeof(char));
+  size_t packet_length = 0;
   char *continue_buffer = NULL;
   size_t continue_buffer_length = 0;
 
   while (1) {
-    long len = csocket_client_recv(&response->connection, packet, TCPLIMITS_PACKET_SIZE);
-    if (len == 0) {
-      perror("[websocket]: Connection closed");
+    struct frequenc_ws_frame header = { 0 };
 
-      goto exit;
-    } else if (len == CSOCKET_CLIENT_ERROR) {
-      perror("[websocket]: Failed to receive data");
+    while (1) {
+      if (packet_length >= 2 && frequenc_parse_ws_frame(&header, packet, (int)packet_length) == 0) {
+        if ((size_t)(header.buffer - packet) + header.payload_length <= packet_length) break;
+      }
 
-      goto exit;
+      /* INFO: No legitimate frame fills the buffer, drop a desynced stream. */
+      if (packet_length >= 65536) packet_length = 0;
+
+      long len = csocket_client_recv(&response->connection, packet + packet_length, 65536 - packet_length);
+      if (len == 0) {
+        perror("[websocket]: Connection closed");
+
+        goto exit;
+      } else if (len == CSOCKET_CLIENT_ERROR) {
+        perror("[websocket]: Failed to receive data");
+
+        goto exit;
+      }
+
+      packet_length += (size_t)len;
     }
 
-    struct frequenc_ws_frame header = { 0 };
-    frequenc_parse_ws_frame(&header, packet, (int)len);
+    size_t frame_length = (size_t)(header.buffer - packet) + header.payload_length;
 
     switch (header.opcode) {
       case 0: {
@@ -310,16 +335,22 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
         break;
       }
       case 8: {
-        /* TODO: how portable is __bswap_16? */
-        #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-          uint8_t *close_code_ptr = (uint8_t *)&header.buffer[0];
-          header.close_code = (close_code_ptr[0] << 8) | close_code_ptr[1];
-        #else
-          uint8_t *close_code_ptr = (uint8_t *)&buffer[1];
-          header.close_code = (close_code_ptr[1] << 8) | close_code_ptr[0];
-        #endif
+        /* INFO: A close frame may carry no status code at all. */
+        if (header.payload_length >= 2) {
+          /* TODO: how portable is __bswap_16? */
+          #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+            uint8_t *close_code_ptr = (uint8_t *)&header.buffer[0];
+            header.close_code = (close_code_ptr[0] << 8) | close_code_ptr[1];
+          #else
+            uint8_t *close_code_ptr = (uint8_t *)&buffer[1];
+            header.close_code = (close_code_ptr[1] << 8) | close_code_ptr[0];
+          #endif
 
-        header.buffer += 2;
+          header.buffer += 2;
+          header.payload_length -= 2;
+        } else {
+          header.close_code = 1005;
+        }
 
         cbs->on_close(response, &header, cbs->user_data);
 
@@ -347,9 +378,13 @@ int frequenc_connect_ws_client(struct httpclient_request_params *request, struct
         break;
       }
     }
+
+    packet_length -= frame_length;
+    memmove(packet, packet + frame_length, packet_length);
   }
 
   exit: {
+    frequenc_safe_free(packet);
     frequenc_safe_free(continue_buffer);
 
     httpclient_shutdown(response);

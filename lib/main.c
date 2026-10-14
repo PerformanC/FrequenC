@@ -205,7 +205,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     cthreads_mutex_init(&new_session->mutex, NULL);
     cthreads_mutex_lock(&new_session->mutex);
 
-    new_session->user_id = user_id->value;
+    new_session->user_id = frequenc_strdup(user_id->value, 0);
     new_session->client = client;
     new_session->disconnected = false;
     
@@ -434,9 +434,8 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
     if (query == NULL || query->value[0] == '\0') goto bad_request;
 
     size_t query_length = urldecoder_decode_length(query->value);
-    /* ALERT: non-NULL terminated */
     struct tstr_string decoded_query = {
-      .string = frequenc_safe_malloc(query_length * sizeof(char)),
+      .string = frequenc_safe_malloc((query_length + 1) * sizeof(char)),
       .length = query_length,
       .allocated = true
     };
@@ -855,6 +854,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
       if (guild_info->vc_connection != NULL) {
         pdvoice_free(guild_info->vc_connection);
         frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+        frequenc_unsafe_free(guild_info->vc_connection->bot_id);
         frequenc_unsafe_free(guild_info->vc_connection);
 
         guild_info->vc_connection = NULL;
@@ -1003,7 +1003,7 @@ void callback(struct csocket_server_client *client, int socket_index, struct htt
         printf("[main]: Voice connection received.\n - Guild ID: %s\n - Token: %s\n - Endpoint: %s\n - Session ID: %s\n", guild_id_str, guild_info->vc_info->token, guild_info->vc_info->endpoint, guild_info->vc_info->session_id);
 
         guild_info->vc_connection = frequenc_safe_malloc(sizeof(struct pdvoice));
-        guild_info->vc_connection->bot_id = session->user_id;
+        guild_info->vc_connection->bot_id = frequenc_strdup(session->user_id, 0);
         guild_info->vc_connection->guild_id = frequenc_strdup(guild_id_str, 0);
 
         pdvoice_init(guild_info->vc_connection);
@@ -1201,6 +1201,7 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
     if (guild_info->vc_connection != NULL) {
       pdvoice_free(guild_info->vc_connection);
       frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+      frequenc_unsafe_free(guild_info->vc_connection->bot_id);
       frequenc_unsafe_free(guild_info->vc_connection);
 
       guild_info->vc_connection = NULL;
@@ -1225,6 +1226,7 @@ void disconnect_callback(struct csocket_server_client *client, int socket_index)
   cthreads_mutex_unlock(&session->mutex);
   cthreads_mutex_destroy(&session->mutex);
 
+  frequenc_unsafe_free(session->user_id);
   frequenc_unsafe_free(session);
   frequenc_unsafe_free(session_id);
 
@@ -1254,6 +1256,7 @@ void handle_sig_int(int signal) {
       if (guild_info->vc_connection != NULL) {
         pdvoice_free(guild_info->vc_connection);
         frequenc_unsafe_free(guild_info->vc_connection->guild_id);
+        frequenc_unsafe_free(guild_info->vc_connection->bot_id);
         frequenc_unsafe_free(guild_info->vc_connection);
 
         guild_info->vc_connection = NULL;
@@ -1275,6 +1278,7 @@ void handle_sig_int(int signal) {
     printf("[main]: Found data in the hashtable.\n - Key: %s\n - Value: %p\n", bucket.key, bucket.value);
 
     frequenc_unsafe_free(client_auth->guilds.buckets);
+    frequenc_unsafe_free(client_auth->user_id);
 
     frequenc_unsafe_free(bucket.key);
     frequenc_unsafe_free(bucket.value);

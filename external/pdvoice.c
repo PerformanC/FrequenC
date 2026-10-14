@@ -22,6 +22,9 @@
 
 void pdvoice_init(struct pdvoice *connection) {
   connection->ws_connection_info = frequenc_safe_malloc(sizeof(struct pdvoice_ws_connection_info));
+  connection->ws_connection_info->token = NULL;
+  connection->ws_connection_info->endpoint = NULL;
+  connection->ws_connection_info->session_id = NULL;
   connection->udp_connection_info = NULL;
   connection->udp_thread_data = NULL;
   connection->hb_thread_data = NULL;
@@ -30,12 +33,25 @@ void pdvoice_init(struct pdvoice *connection) {
 }
 
 void pdvoice_update_state(struct pdvoice *connection, char *session_id) {
-  connection->ws_connection_info->session_id = session_id;
+  if (connection->mutex == NULL) return;
+
+  cthreads_mutex_lock(connection->mutex);
+
+  frequenc_unsafe_free(connection->ws_connection_info->session_id);
+  connection->ws_connection_info->session_id = frequenc_strdup(session_id, 0);
+  cthreads_mutex_unlock(connection->mutex);
 }
 
 void pdvoice_update_server(struct pdvoice *connection, char *endpoint, char *token) {
-  connection->ws_connection_info->endpoint = endpoint;
-  connection->ws_connection_info->token = token;
+  if (connection->mutex == NULL) return;
+
+  cthreads_mutex_lock(connection->mutex);
+
+  frequenc_unsafe_free(connection->ws_connection_info->endpoint);
+  frequenc_unsafe_free(connection->ws_connection_info->token);
+  connection->ws_connection_info->endpoint = frequenc_strdup(endpoint, 0);
+  connection->ws_connection_info->token = frequenc_strdup(token, 0);
+  cthreads_mutex_unlock(connection->mutex);
 }
 
 static void _pdvoice_on_connect(struct httpclient_response *client, void *user_data) {
@@ -201,7 +217,8 @@ static void *_pdvoice_udp(void *data) {
     return NULL;
   }
 
-  char ip[(3 + 1 + 3 + 1 + 3) + 1];
+  /* INFO: IPv4 text is 15 bytes at most, plus the terminator. */
+  char ip[17];
   frequenc_fast_copy(buffer + 8, ip, 16);
 
   #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -457,6 +474,9 @@ void pdvoice_free(struct pdvoice *connection) {
   cthreads_thread_cancel(connection->ws_thread);
 
   if (connection->ws_connection_info != NULL) {
+    frequenc_unsafe_free(connection->ws_connection_info->endpoint);
+    frequenc_unsafe_free(connection->ws_connection_info->token);
+    frequenc_unsafe_free(connection->ws_connection_info->session_id);
     free(connection->ws_connection_info);
     connection->ws_connection_info = NULL;
   }
