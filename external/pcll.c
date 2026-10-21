@@ -45,69 +45,33 @@ int pcll_init_tls_server(struct pcll_server *server, char *cert, char *key) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     server->ctx = SSL_CTX_new(TLS_server_method());
-    if (server->ctx == NULL) {
-      SSL_CTX_free(server->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (server->ctx == NULL) return PCLL_ERROR;
 
     int ret = SSL_CTX_set_min_proto_version(server->ctx, TLS1_3_VERSION);
-    if (ret != SSL_SUCCESS) {
-      SSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     ret = SSL_CTX_use_certificate_file(server->ctx, cert, SSL_FILETYPE_PEM);
-    if (ret != SSL_SUCCESS) {
-      SSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     ret = SSL_CTX_use_PrivateKey_file(server->ctx, key, SSL_FILETYPE_PEM);
-    if (ret != SSL_SUCCESS) {
-      SSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     ret = SSL_CTX_check_private_key(server->ctx);
-    if (ret != SSL_SUCCESS) {
-      SSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     server->ctx = wolfSSL_CTX_new(wolfTLSv1_2_server_method());
-    if (server->ctx == NULL) {
-      wolfSSL_CTX_free(server->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (server->ctx == NULL) return PCLL_ERROR;
 
     int ret = wolfSSL_CTX_use_certificate_file(server->ctx, cert, SSL_FILETYPE_PEM);
-    if (ret != WOLFSSL_SUCCESS) {
-      wolfSSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != WOLFSSL_SUCCESS) return ret;
 
     ret = wolfSSL_CTX_use_PrivateKey_file(server->ctx, key, SSL_FILETYPE_PEM);
-    if (ret != WOLFSSL_SUCCESS) {
-      wolfSSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != WOLFSSL_SUCCESS) return ret;
 
     ret = wolfSSL_CTX_check_private_key(server->ctx);
-    if (ret != WOLFSSL_SUCCESS) {
-      wolfSSL_CTX_free(server->ctx);
-
-      return ret;
-    }
+    if (ret != WOLFSSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -124,48 +88,26 @@ int pcll_init_ssl(struct pcll_connection *connection) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     connection->ctx = SSL_CTX_new(TLS_client_method());
-    if (connection->ctx == NULL) {
-      SSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ctx == NULL) return PCLL_ERROR;
 
     /*
       This is set to TLS v1.2 as that's the maximum Discord accepts. ONLY put as v1.2 if
         the targeted service doesn't accept it.
     */
     int ret = SSL_CTX_set_min_proto_version(connection->ctx, TLS1_2_VERSION);
-    if (ret != SSL_SUCCESS) {
-      SSL_CTX_free(connection->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     connection->ssl = SSL_new(connection->ctx);
-    if (connection->ssl == NULL) {
-      SSL_free(connection->ssl);
-      SSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ssl == NULL) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     /* TODO: How portable is to use wolfTLSv1_3_client_method? */
     connection->ctx = wolfSSL_CTX_new(wolfTLSv1_2_client_method());
-    if (connection->ctx == NULL) {
-      wolfSSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ctx == NULL) return PCLL_ERROR;
 
     connection->ssl = wolfSSL_new(connection->ctx);
-    if (connection->ssl == NULL) {
-      wolfSSL_free(connection->ssl);
-      wolfSSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ssl == NULL) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -183,22 +125,12 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     connection->ssl = SSL_new(connection->ctx);
-    if (connection->ssl == NULL) {
-      SSL_free(connection->ssl);
-      SSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ssl == NULL) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     connection->ssl = wolfSSL_new(connection->ctx);
-    if (connection->ssl == NULL) {
-      wolfSSL_free(connection->ssl);
-      wolfSSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (connection->ssl == NULL) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -234,12 +166,7 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
     if (ret != X509_V_OK) return ret;
 
     ret = SSL_set_fd(connection->ssl, fd);
-    if (ret != SSL_SUCCESS) {
-      SSL_free(connection->ssl);
-      SSL_CTX_free(connection->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
@@ -255,12 +182,7 @@ int pcll_init_only_ssl(struct pcll_connection *connection) {
     if (connection->ssl == NULL) return PCLL_ERROR;
 
     ret = wolfSSL_set_fd(connection->ssl, fd);
-    if (ret != WOLFSSL_SUCCESS) {
-      wolfSSL_free(connection->ssl);
-      wolfSSL_CTX_free(connection->ctx);
-
-      return ret;
-    }
+    if (ret != WOLFSSL_SUCCESS) return ret;
 
     return PCCL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -399,22 +321,12 @@ int pcll_accept(struct pcll_connection *connection) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_accept(connection->ssl);
-    if (ret != SSL_SUCCESS) {
-      SSL_free(connection->ssl);
-      SSL_CTX_free(connection->ctx);
-
-      return ret;
-    }
+    if (ret != SSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     int ret = wolfSSL_accept(connection->ssl);
-    if (ret != WOLFSSL_SUCCESS) {
-      wolfSSL_free(connection->ssl);
-      wolfSSL_CTX_free(connection->ctx);
-
-      return ret;
-    }
+    if (ret != WOLFSSL_SUCCESS) return ret;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -447,24 +359,12 @@ int pcll_send(struct pcll_connection* connection, char *data, int length) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int ret = SSL_write(connection->ssl, data, length);
-    if (ret != length) {
-        /* TODO: Should we clean up here or let the dev decide? */
-        SSL_free(connection->ssl);
-        SSL_CTX_free(connection->ctx);
-
-        return PCLL_ERROR;
-    }
+    if (ret != length) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     int ret = wolfSSL_write(connection->ssl, data, length);
-    if (ret != length) {
-        /* TODO: Should we clean up here or let the dev decide? */
-        wolfSSL_free(connection->ssl);
-        wolfSSL_CTX_free(connection->ctx);
-
-        return PCLL_ERROR;
-    }
+    if (ret != length) return PCLL_ERROR;
 
     return PCLL_SUCCESS;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -516,24 +416,12 @@ int pcll_recv(struct pcll_connection *connection, char *data, int length) {
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
     int recv_length = SSL_read(connection->ssl, data, length);
-    if (recv_length == -1) {
-      /* TODO: Should we clean up here or let the dev decide? */
-      SSL_free(connection->ssl);
-      SSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (recv_length == -1) return PCLL_ERROR;
 
     return recv_length;
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
     int recv_length = wolfSSL_read(connection->ssl, data, length);
-    if (recv_length == -1) {
-      /* TODO: Should we clean up here or let the dev decide? */
-      wolfSSL_free(connection->ssl);
-      wolfSSL_CTX_free(connection->ctx);
-
-      return PCLL_ERROR;
-    }
+    if (recv_length == -1) return PCLL_ERROR;
 
     return recv_length;
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
@@ -631,8 +519,8 @@ void pcll_free(struct pcll_connection *connection) {
     if (connection->ssl != NULL) SSL_free(connection->ssl);
     if (connection->ctx != NULL) SSL_CTX_free(connection->ctx);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
-    wolfSSL_free(connection->ssl);
-    wolfSSL_CTX_free(connection->ctx);
+    if (connection->ssl != NULL) wolfSSL_free(connection->ssl);
+    if (connection->ctx != NULL) wolfSSL_CTX_free(connection->ctx);
     wolfSSL_Cleanup();
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
     WSACleanup();
@@ -643,9 +531,9 @@ void pcll_shutdown(struct pcll_connection *connection) {
   (void) connection;
 
   #if PCLL_SSL_LIBRARY == PCLL_OPENSSL
-    SSL_shutdown(connection->ssl);
+    if (connection->ssl != NULL) SSL_shutdown(connection->ssl);
   #elif PCLL_SSL_LIBRARY == PCLL_WOLFSSL
-    wolfSSL_shutdown(connection->ssl);
+    if (connection->ssl != NULL) wolfSSL_shutdown(connection->ssl);
   #elif PCLL_SSL_LIBRARY == PCLL_SCHANNEL
     DWORD type = SCHANNEL_SHUTDOWN;
 
