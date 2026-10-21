@@ -144,18 +144,8 @@ void frequenc_set_ws_response_body(struct frequenc_ws_message *response, char *b
 }
 
 void frequenc_send_ws_response(struct frequenc_ws_message *response) {
+  /* INFO: server frames are never masked (RFC 6455), unlike client frames. */
   size_t payload_start_index = 2;
-
-  unsigned int mask[] = { 0, 0, 0, 0 };
-  
-  srand(frequenc_safe_seeding());
-
-  mask[0] = (unsigned int)rand();
-  mask[1] = (unsigned int)rand();
-  mask[2] = (unsigned int)rand();
-  mask[3] = (unsigned int)rand();
-
-  payload_start_index += 4;
 
   if (response->payload_length >= 65536) payload_start_index += 8;
   else if (response->payload_length > 125) payload_start_index += 2;
@@ -165,6 +155,8 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   buffer[0] = response->opcode | 128;
 
   if (response->payload_length >= 65536) {
+    buffer[1] = 127;
+
     buffer[2] = buffer[3] = 0;
     buffer[4] = (unsigned char)(response->payload_length >> 56);
     buffer[5] = (unsigned char)(response->payload_length >> 48);
@@ -175,6 +167,8 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
     buffer[10] = (unsigned char)(response->payload_length >> 8);
     buffer[11] = (unsigned char)(response->payload_length & 0xFF);
   } else if (response->payload_length > 125) {
+    buffer[1] = 126;
+
     buffer[2] = (unsigned char)(response->payload_length >> 8);
     buffer[3] = (unsigned char)(response->payload_length & 0xFF);
   } else {
@@ -182,16 +176,6 @@ void frequenc_send_ws_response(struct frequenc_ws_message *response) {
   }
 
   memcpy(buffer + payload_start_index, response->buffer, response->payload_length);
-
-  buffer[1] |= 128;
-  buffer[payload_start_index - 4] = (unsigned char)mask[0];
-  buffer[payload_start_index - 3] = (unsigned char)mask[1];
-  buffer[payload_start_index - 2] = (unsigned char)mask[2];
-  buffer[payload_start_index - 1] = (unsigned char)mask[3];
-
-  for (size_t i = 0; i < response->payload_length; ++i) {
-    buffer[payload_start_index + i] ^= mask[i & 3];
-  }
 
   if (csocket_server_send(response->client, (char *)buffer, payload_start_index + response->payload_length) == PCLL_ERROR) {
     perror("[websocket]: Failed to send message");
