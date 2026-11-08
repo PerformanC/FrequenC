@@ -443,3 +443,72 @@ int frequenc_send_text_ws_client(struct httpclient_response *response, char *mes
 
   return 0;
 }
+
+int frequenc_send_binary_ws_client(struct httpclient_response *response, uint8_t opcode, char *data, size_t data_length) {
+  size_t payload_length = 1 + data_length;
+  int payload_start_index = 2;
+
+  unsigned int mask[] = { 0, 0, 0, 0 };
+
+  srand(frequenc_safe_seeding());
+
+  mask[0] = (unsigned int)rand();
+  mask[1] = (unsigned int)rand();
+  mask[2] = (unsigned int)rand();
+  mask[3] = (unsigned int)rand();
+
+  payload_start_index += 4;
+
+  if (payload_length >= 65536) payload_start_index += 8;
+  else if (payload_length > 125) payload_start_index += 2;
+
+  unsigned char *buffer = frequenc_safe_malloc(((size_t)payload_start_index + payload_length) * sizeof(unsigned char));
+
+  buffer[0] = 2 | 128;
+
+  if (payload_length >= 65536) {
+    buffer[1] = 127;
+
+    buffer[2] = buffer[3] = 0;
+    buffer[4] = (unsigned char)(payload_length >> 56);
+    buffer[5] = (unsigned char)(payload_length >> 48);
+    buffer[6] = (unsigned char)(payload_length >> 40);
+    buffer[7] = (unsigned char)(payload_length >> 32);
+    buffer[8] = (unsigned char)(payload_length >> 24);
+    buffer[9] = (unsigned char)(payload_length >> 16);
+    buffer[10] = (unsigned char)(payload_length >> 8);
+    buffer[11] = (unsigned char)(payload_length & 0xFF);
+  } else if (payload_length > 125) {
+    buffer[1] = 126;
+
+    buffer[2] = (unsigned char)(payload_length >> 8);
+    buffer[3] = (unsigned char)(payload_length & 0xFF);
+  } else {
+    buffer[1] = (unsigned char)payload_length;
+  }
+
+  buffer[payload_start_index] = opcode;
+  memcpy(buffer + payload_start_index + 1, data, data_length);
+
+  buffer[1] |= 128;
+  buffer[payload_start_index - 4] = (unsigned char)mask[0];
+  buffer[payload_start_index - 3] = (unsigned char)mask[1];
+  buffer[payload_start_index - 2] = (unsigned char)mask[2];
+  buffer[payload_start_index - 1] = (unsigned char)mask[3];
+
+  for (size_t i = 0; i < payload_length; ++i) {
+    buffer[(size_t)payload_start_index + i] ^= (unsigned char)mask[i & 3];
+  }
+
+  if (csocket_client_send(&response->connection, (char *)buffer, (size_t)payload_start_index + payload_length) == PCLL_ERROR) {
+    perror("[websocket]: Failed to send message");
+
+    frequenc_unsafe_free(buffer);
+
+    return -1;
+  }
+
+  frequenc_unsafe_free(buffer);
+
+  return 0;
+}
