@@ -8,6 +8,8 @@
   #include <netdb.h>
   #include <unistd.h>
   #include <arpa/inet.h>
+  #include <netinet/tcp.h>
+  #include <netinet/in.h>
 #endif
 
 #include "pcll.h"
@@ -66,6 +68,14 @@ int csocket_client_init(struct csocket_client *client, bool secure, char *hostna
 
       return CSOCKET_CLIENT_ERROR;
     }
+  #endif
+
+  /* INFO: To avoid delays in packet sending, set TCP_NODELAY, otherwise it'll make batches to send at once. */
+  int flag = 1;
+  #ifdef _WIN32
+    setsockopt(client->socket, IPPROTO_TCP, TCP_NODELAY, (const char *)&flag, sizeof(flag));
+  #else
+    setsockopt(client->socket, IPPROTO_TCP, TCP_NODELAY, &flag, (socklen_t)sizeof(flag));
   #endif
 
   if ((client->secure = secure)) {
